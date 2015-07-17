@@ -1,3 +1,5 @@
+// This file tests conversions from each data type to every other data type.
+
 package awk
 
 import (
@@ -80,6 +82,46 @@ func TestFloat64ToString(t *testing.T) {
 		s := v.String()
 		if s != out[idx] {
 			t.Fatalf("Expected %q but received %q", out[idx], s)
+		}
+	}
+}
+
+// TestStringToInt64 converts various strings to Values then to int64s.
+func TestStringToInt64(t *testing.T) {
+	scr := NewScript()
+	in := []string{"0", "-123", "123", "-456", "456", "9223372036854775807", "-9223372036854775808", "123", "Text999"}
+	out := []int64{0, -123, 123, -456, 456, 9223372036854775807, -9223372036854775808, 123, 0}
+	for idx, n := range in {
+		v := scr.NewString(n)
+		i := v.Int64()
+		if i != out[idx] {
+			t.Fatalf("Expected %d but received %d", out[idx], i)
+		}
+	}
+}
+
+// TestStringToFloat64 converts various strings to Values then to float64s.
+func TestStringToFloat64(t *testing.T) {
+	scr := NewScript()
+	in := []string{"0", "-123", "123", "-456.7", "456.7", "17.9769e+307", "-17.9769e+307", "123", "-456.4", "456.4", "Text99.99", "99.99e+1000"}
+	out := []float64{0, -123, 123, -456.7, 456.7, 1.79769e+308, -1.79769e+308, 123, -456.4, 456.4, 0, math.Inf(1)}
+	for idx, n := range in {
+		v := scr.NewString(n)
+		f := v.Float64()
+		if f != out[idx] {
+			t.Fatalf("Expected %.4g but received %.4g", out[idx], f)
+		}
+	}
+}
+
+// TestStringToString converts various strings to Values then back to strings.
+func TestStringToString(t *testing.T) {
+	scr := NewScript()
+	for _, n := range []string{"0", "-123", "123", "-456.7", "456.7", "17.9769e+307", "-17.9769e+307", "123", "-456.4", "456.4", "Text99.99", "99.99e+1000"} {
+		v := scr.NewString(n)
+		s := v.String()
+		if s != n {
+			t.Fatalf("Expected %q but received %q", n, s)
 		}
 	}
 }

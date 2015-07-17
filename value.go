@@ -17,11 +17,17 @@ type Value struct {
 	i64_ok bool // true: i64 is valid; false: invalid
 	f64_ok bool // true: f64 is valid; false: invalid
 	s_ok   bool // true: s is valid; false: invalid
+
+	script *Script // Pointer to the script that produced this value
 }
 
 // NewInt64 creates a Value from an Int64.
-func NewInt64(i int64) *Value {
-	return &Value{i64: i, i64_ok: true}
+func (s *Script) NewInt64(i int64) *Value {
+	return &Value{
+		i64:    i,
+		i64_ok: true,
+		script: s,
+	}
 }
 
 // Int64 converts a Value to an int64.  This method always succeeds.
@@ -57,7 +63,7 @@ func (v *Value) String() string {
 		v.s = strconv.FormatInt(v.i64, 10)
 		v.s_ok = true
 	case v.f64_ok:
-		v.s = fmt.Sprintf(convFmt, v.f64)
+		v.s = fmt.Sprintf(v.script.ConvFmt, v.f64)
 		v.s_ok = true
 	}
 	return v.s

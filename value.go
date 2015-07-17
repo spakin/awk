@@ -22,33 +22,33 @@ type Value struct {
 }
 
 // NewInt64 creates a Value from an int64.
-func (scr *Script) NewInt64(i int64) *Value {
+func (s *Script) NewInt64(i int64) *Value {
 	return &Value{
 		i64:    i,
 		i64_ok: true,
-		script: scr,
+		script: s,
 	}
 }
 
 // NewFloat64 creates a Value from a float64.
-func (scr *Script) NewFloat64(f float64) *Value {
+func (s *Script) NewFloat64(f float64) *Value {
 	return &Value{
 		f64:    f,
 		f64_ok: true,
-		script: scr,
+		script: s,
 	}
 }
 
 // NewString creates a Value from a string.
-func (scr *Script) NewString(s string) *Value {
+func (s *Script) NewString(str string) *Value {
 	return &Value{
-		s:      s,
+		s:      str,
 		s_ok:   true,
-		script: scr,
+		script: s,
 	}
 }
 
-// Int64 converts a Value to an int64.  This method always succeeds.
+// Int64 converts a Value to an int64.
 func (v *Value) Int64() int64 {
 	switch {
 	case v.f64_ok:
@@ -61,7 +61,7 @@ func (v *Value) Int64() int64 {
 	return v.i64
 }
 
-// Float64 converts a Value to a float64.  This method always succeeds.
+// Float64 converts a Value to a float64.
 func (v *Value) Float64() float64 {
 	switch {
 	case v.i64_ok:
@@ -74,7 +74,7 @@ func (v *Value) Float64() float64 {
 	return v.f64
 }
 
-// String converts a Value to a string.  This method always succeeds.
+// String converts a Value to a string.
 func (v *Value) String() string {
 	switch {
 	case v.i64_ok:

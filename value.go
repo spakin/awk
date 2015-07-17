@@ -8,7 +8,7 @@ import (
 const convFmt = "%.6g"
 
 // A Value represents an immutable datum that can be converted to various
-// types, always without error.
+// types in best-effort fashion (i.e., never returning an error).
 type Value struct {
 	i64 int64   // Value converted to an int64
 	f64 float64 // Value converted to a float64
@@ -21,12 +21,30 @@ type Value struct {
 	script *Script // Pointer to the script that produced this value
 }
 
-// NewInt64 creates a Value from an Int64.
-func (s *Script) NewInt64(i int64) *Value {
+// NewInt64 creates a Value from an int64.
+func (scr *Script) NewInt64(i int64) *Value {
 	return &Value{
 		i64:    i,
 		i64_ok: true,
-		script: s,
+		script: scr,
+	}
+}
+
+// NewFloat64 creates a Value from a float64.
+func (scr *Script) NewFloat64(f float64) *Value {
+	return &Value{
+		f64:    f,
+		f64_ok: true,
+		script: scr,
+	}
+}
+
+// NewString creates a Value from a string.
+func (scr *Script) NewString(s string) *Value {
+	return &Value{
+		s:      s,
+		s_ok:   true,
+		script: scr,
 	}
 }
 

@@ -125,3 +125,20 @@ func TestStringToString(t *testing.T) {
 		}
 	}
 }
+
+// TestMatch tests if regular-expression matching works.
+func TestMatch(t *testing.T) {
+	// We run the test twice to see if regexp caching works.
+	scr := NewScript()
+	v := scr.NewValue("Mississippi")
+	in := []string{"p*", "[is]+", "Miss", "hippie", "ippi"}
+	out := []bool{true, true, true, false, true}
+	for _ = range [2]struct{}{} {
+		for idx, n := range in {
+			m := v.Match(n)
+			if m != out[idx] {
+				t.Fatalf("Expected %v but received %v\n", out[idx], m)
+			}
+		}
+	}
+}

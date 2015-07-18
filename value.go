@@ -5,6 +5,7 @@ package awk
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 )
 
@@ -63,6 +64,12 @@ func (s *Script) NewValue(v interface{}) *Value {
 		val.ival_ok = true
 	case int64:
 		val.ival = int(v)
+		val.ival_ok = true
+
+	case bool:
+		if v {
+			val.ival = 1
+		}
 		val.ival_ok = true
 
 	case float32:
@@ -127,4 +134,24 @@ func (v *Value) String() string {
 		v.sval_ok = true
 	}
 	return v.sval
+}
+
+// Match says whether a given regular expression matches the Value.
+func (v *Value) Match(expr string) bool {
+	// Check if we've previously encountered this regexp.
+	re, ok := v.script.regexps[expr]
+	if !ok {
+		// Compile on first use then remember for later.
+		var err error
+		re, err = regexp.Compile(expr)
+		if err != nil {
+			// Fail silently
+			return false
+		}
+		v.script.regexps[expr] = re
+	}
+
+	// Return true if the expression matches the value, interpreted as a
+	// string.
+	return re.MatchString(v.String())
 }

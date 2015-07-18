@@ -2,15 +2,22 @@
 
 package awk
 
+import (
+	"regexp"
+)
+
 // A Script contains all the internal state for an AWK-like script.
 type Script struct {
-	ConvFmt string // Conversion format for numbers, "%.6g" by default
-	FS      string // Input field separator, space by default
-	NF      int    // Number of fields in the current input record
-	NR      int    // Number of input records seen so far
-	RS      string // Input record separator, newline by default
+	State   interface{} // Arbitrary, user-supplied data
+	ConvFmt string      // Conversion format for numbers, "%.6g" by default
+	FS      string      // Input field separator, space by default
+	NF      int         // Number of fields in the current input record
+	NR      int         // Number of input records seen so far
+	RS      string      // Input record separator, newline by default
+	F       []*Value    // Fields in the current record; F[0] is the entire record
 
-	rules []Statement // List of pattern-action pairs to execute
+	rules   []Statement               // List of pattern-action pairs to execute
+	regexps map[string]*regexp.Regexp // Map from a regular-expression string to a compiled regular expression
 }
 
 // NewScript initializes a new Script with default values.
@@ -22,6 +29,7 @@ func NewScript() *Script {
 		NR:      0,
 		RS:      "\n",
 		rules:   make([]Statement, 0, 10),
+		regexps: make(map[string]*regexp.Regexp, 10),
 	}
 }
 

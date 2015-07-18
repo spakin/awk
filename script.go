@@ -1,3 +1,5 @@
+// This file lets users define and execute AWK-like scripts within Go.
+
 package awk
 
 // A Script contains all the internal state for an AWK-like script.

@@ -22,21 +22,21 @@ type Script struct {
 
 	rules     []Statement               // List of pattern-action pairs to execute
 	regexps   map[string]*regexp.Regexp // Map from a regular-expression string to a compiled regular expression
-	rsScanner map[string]*bufio.Scanner // Map from a record separator to a scanner
+	rsScanner *bufio.Scanner            // Scanner associated with RS
+	prevRS    string                    // RS associated with rsScanner
 	input     *bufio.Reader             // Script input stream
 }
 
 // NewScript initializes a new Script with default values.
 func NewScript() *Script {
 	return &Script{
-		ConvFmt:   "%.6g",
-		FS:        " ",
-		NF:        0,
-		NR:        0,
-		RS:        "\n",
-		rules:     make([]Statement, 0, 10),
-		regexps:   make(map[string]*regexp.Regexp, 10),
-		rsScanner: make(map[string]*bufio.Scanner, 1),
+		ConvFmt: "%.6g",
+		FS:      " ",
+		NF:      0,
+		NR:      0,
+		RS:      "\n",
+		rules:   make([]Statement, 0, 10),
+		regexps: make(map[string]*regexp.Regexp, 10),
 	}
 }
 
@@ -73,39 +73,26 @@ func (s *Script) makeSplitter(sep string) func([]byte, bool) (int, []byte, error
 				return 0, nil, errors.New("Invalid rune in separator")
 			}
 
-			// Skip leading separators.
-			start := 0
-			for width := 0; start < len(data); start += width {
-				var r rune
-				r, width = utf8.DecodeRune(data[start:])
-				if r == utf8.RuneError {
-					return 0, nil, errors.New("Invalid rune in input data")
-				}
-				if r != firstRune {
-					break
-				}
-			}
-
-			// Scan until we see the separator again.
-			for width, i := 0, start; i < len(data); i += width {
+			// Scan until we see a separator.
+			for width, i := 0, 0; i < len(data); i += width {
 				var r rune
 				r, width = utf8.DecodeRune(data[i:])
 				if r == utf8.RuneError {
 					return 0, nil, errors.New("Invalid rune in input data")
 				}
 				if r == firstRune {
-					return i + width, data[start:i], nil
+					return i + width, data[0:i], nil
 				}
 			}
 
 			// If we're at EOF, we have a final, non-empty,
 			// non-terminated token. Return it.
-			if atEOF && len(data) > start {
-				return len(data), data[start:], nil
+			if atEOF && len(data) > 0 {
+				return len(data), data[0:], nil
 			}
 
 			// Request more data.
-			return start, nil, nil
+			return 0, nil, nil
 		}
 	}
 
@@ -120,21 +107,20 @@ func (s *Script) makeSplitter(sep string) func([]byte, bool) (int, []byte, error
 
 // Read the next record from a stream and return it.
 func (s *Script) readRecord() (string, error) {
-	// Reuse an existing scanner if one exists.  Otherwise, create (and
-	// store) a new one.
-	scanner, found := s.rsScanner[s.RS]
-	if !found {
+	// Reuse the existing scanner if RS hasn't changed.  Otherwise, create
+	// (and store) a new scanner.
+	if s.rsScanner == nil || s.RS != s.prevRS {
 		// Create a new scanner.
-		scanner = bufio.NewScanner(s.input)
-		scanner.Split(s.makeSplitter(s.RS))
-		s.rsScanner[s.RS] = scanner
+		s.rsScanner = bufio.NewScanner(s.input)
+		s.rsScanner.Split(s.makeSplitter(s.RS))
+		s.prevRS = s.RS
 	}
 
 	// Return the next record.
-	if scanner.Scan() {
-		return scanner.Text(), nil
+	if s.rsScanner.Scan() {
+		return s.rsScanner.Text(), nil
 	}
-	if err := scanner.Err(); err != nil {
+	if err := s.rsScanner.Err(); err != nil {
 		return "", err
 	} else {
 		return "", io.EOF

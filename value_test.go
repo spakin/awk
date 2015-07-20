@@ -8,9 +8,9 @@ import (
 )
 
 // TestIntToInt converts various ints to Values then back to ints.
-func TestInt64ToInt64(t *testing.T) {
+func TestIntToInt(t *testing.T) {
 	scr := NewScript()
-	for _, n := range []int{0, -123, 123, -456, 456, math.MaxInt64, math.MinInt64, 123} {
+	for _, n := range []int{0, -123, 123, -456, 456, math.MaxInt32, math.MinInt32, 123} {
 		v := scr.NewValue(n)
 		i := v.Int()
 		if i != n {
@@ -22,7 +22,7 @@ func TestInt64ToInt64(t *testing.T) {
 // TestIntToInt converts various ints to Values then to float64s.
 func TestIntToFloat64(t *testing.T) {
 	scr := NewScript()
-	for _, n := range []int{0, -123, 123, -456, 456, math.MaxInt64, math.MinInt64, 123} {
+	for _, n := range []int{0, -123, 123, -456, 456, math.MaxInt32, math.MinInt32, 123} {
 		v := scr.NewValue(n)
 		f := v.Float64()
 		if f != float64(n) {
@@ -34,8 +34,8 @@ func TestIntToFloat64(t *testing.T) {
 // TestIntToString converts various ints to Values then to strings.
 func TestIntToString(t *testing.T) {
 	scr := NewScript()
-	in := []int{0, -123, 123, -456, 456, math.MaxInt64, math.MinInt64, 123}
-	out := []string{"0", "-123", "123", "-456", "456", "9223372036854775807", "-9223372036854775808", "123"}
+	in := []int{0, -123, 123, -456, 456, math.MaxInt32, math.MinInt32, 123}
+	out := []string{"0", "-123", "123", "-456", "456", "2147483647", "-2147483648", "123"}
 	for idx, n := range in {
 		v := scr.NewValue(n)
 		s := v.String()
@@ -48,8 +48,8 @@ func TestIntToString(t *testing.T) {
 // TestFloat64ToInt converts various float64s to Values then to ints.
 func TestFloat64ToInt(t *testing.T) {
 	scr := NewScript()
-	in := []float64{0.0, -123.0, 123.0, -456.7, 456.7, math.MaxFloat64, -math.MaxFloat64, 123.0, -456.4, 456.4}
-	out := []int{0, -123, 123, -456, 456, math.MinInt64, math.MinInt64, 123, -456, 456}
+	in := []float64{0.0, -123.0, 123.0, -456.7, 456.7, 123.0, -456.4, 456.4}
+	out := []int{0, -123, 123, -456, 456, 123, -456, 456}
 	for idx, n := range in {
 		v := scr.NewValue(n)
 		i := v.Int()
@@ -89,8 +89,8 @@ func TestFloat64ToString(t *testing.T) {
 // TestStringToInt converts various strings to Values then to ints.
 func TestStringToInt(t *testing.T) {
 	scr := NewScript()
-	in := []string{"0", "-123", "123", "-456", "456", "9223372036854775807", "-9223372036854775808", "123", "Text999"}
-	out := []int{0, -123, 123, -456, 456, 9223372036854775807, -9223372036854775808, 123, 0}
+	in := []string{"0", "-123", "123", "-456", "456", "9223372036854775807", "-9223372036854775808", "123", "Text999", "321_go"}
+	out := []int{0, -123, 123, -456, 456, 9223372036854775807, -9223372036854775808, 123, 0, 321}
 	for idx, n := range in {
 		v := scr.NewValue(n)
 		i := v.Int()

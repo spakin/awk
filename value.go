@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"unicode/utf8"
 )
 
 const convFmt = "%.6g"
@@ -103,7 +104,22 @@ func (v *Value) Int() int {
 		v.ival = int(v.fval)
 		v.ival_ok = true
 	case v.sval_ok:
-		i64, _ := strconv.ParseInt(v.sval, 10, 0)
+		// Keep trimming characters from the end of the string until it
+		// parses.
+		var i64 int64
+		str := v.sval
+		for len(str) > 0 {
+			var err error
+			i64, err = strconv.ParseInt(str, 10, 0)
+			if err == nil {
+				break
+			}
+			r, size := utf8.DecodeLastRuneInString(str)
+			if r == utf8.RuneError {
+				break
+			}
+			str = str[:len(str)-size]
+		}
 		v.ival = int(i64)
 		v.ival_ok = true
 	}

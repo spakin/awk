@@ -35,3 +35,20 @@ func TestReadRecordNewline(t *testing.T) {
 	allRecordsStr += "\n"
 	doTest()
 }
+
+// TestReadRecordWhitespace tests reading whitespace-separated records.
+func TestReadRecordWhitespace(t *testing.T) {
+	allRecordsStr := "  banana banana banana  banana   banana banana\tbanana banana\nbanana banana"
+	scr := NewScript()
+	scr.input = bufio.NewReader(strings.NewReader(allRecordsStr))
+	scr.RS = " "
+	for i := 0; i < 10; i++ {
+		rec, err := scr.readRecord()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if rec != "banana" {
+			t.Fatalf("Expected %q but received %q", "banana", rec)
+		}
+	}
+}

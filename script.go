@@ -7,7 +7,19 @@ import (
 	"errors"
 	"io"
 	"regexp"
+	"strings"
 	"unicode/utf8"
+	"fmt"
+)
+
+// A parseState indicates where we are in our parsing state.
+type parseState int
+
+// The following are the possibilities for a parseState.
+const (
+	atBegin  parseState = iota // Before any records are read
+	inMiddle                   // While records are being read
+	atEnd                      // After all records are read
 )
 
 // A Script contains all the internal state for an AWK-like script.
@@ -25,6 +37,7 @@ type Script struct {
 	rsScanner *bufio.Scanner            // Scanner associated with RS
 	prevRS    string                    // RS associated with rsScanner
 	input     *bufio.Reader             // Script input stream
+	parsing   parseState                // What we're currently parsing
 }
 
 // NewScript initializes a new Script with default values.
@@ -44,6 +57,24 @@ func NewScript() *Script {
 type Statement struct {
 	Pattern func(*Script) bool // true: run Action; false: go to next statement
 	Action  func(*Script)      // Operations to perform when Pattern returns true
+}
+
+// The Begin pattern is true at the beginning of a script, before any records
+// have been read.
+func Begin(s *Script) bool {
+	return s.parsing == atBegin
+}
+
+// The End pattern is true at the end of a script, after all records have been
+// read.
+func End(s *Script) bool {
+	return s.parsing == atEnd
+}
+
+// The Print statement outputs the current record verbatim to the standard
+// output device.
+func Print(s *Script) {
+	fmt.Printf("%v%s", s.F[0], s.RS)
 }
 
 // AppendStmt appends a pattern-action pair to a Script.
@@ -127,8 +158,33 @@ func (s *Script) readRecord() (string, error) {
 	}
 }
 
+// Split a record into fields.  Store the fields in the Script struct's F field.
+func (s *Script) splitRecord(rec string) error {
+	fsScanner := bufio.NewScanner(strings.NewReader(rec))
+	fsScanner.Split(s.makeSplitter(s.FS))
+	fields := make([]*Value, 0, 100)
+	for fsScanner.Scan() {
+		fields = append(fields, s.NewValue(fsScanner.Text()))
+	}
+	if err := fsScanner.Err(); err != nil {
+		return err
+	}
+	s.F = fields
+	return nil
+}
+
 // Execute a script against a given input stream.
 func (s *Script) Run(r io.Reader) error {
+	// Define a helper function that makes a pass through all user-defined
+	// statements.
+	walkStatements := func() {
+		for _, rule := range s.rules {
+			if rule.Pattern(s) {
+				rule.Action(s)
+			}
+		}
+	}
+
 	// Wrap a buffered reader around the given reader.
 	rb, ok := r.(*bufio.Reader)
 	if !ok {
@@ -136,10 +192,15 @@ func (s *Script) Run(r io.Reader) error {
 	}
 	s.input = rb
 
+	// Process all Begin actions.
+	s.parsing = atBegin
+	walkStatements()
+
 	// Process each record in turn.
+	s.parsing = inMiddle
 	for {
 		// Read a record.
-		record, err := s.readRecord()
+		rec, err := s.readRecord()
 		if err != nil {
 			if err == io.EOF {
 				break
@@ -147,7 +208,15 @@ func (s *Script) Run(r io.Reader) error {
 			return err
 		}
 
-		_ = record // Temporary
+		// Split the record into its constituent fields.
+		s.splitRecord(rec)
+
+		// Process all applicable actions.
+		walkStatements()
 	}
+
+	// Process all End actions
+	s.parsing = atEnd
+	walkStatements()
 	return nil
 }

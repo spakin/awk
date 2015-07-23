@@ -112,14 +112,19 @@ func (s *Script) makeSplitter(sep string) func([]byte, bool) (int, []byte, error
 	// Separator is a single character: scan based on that.  This code is
 	// derived from the bufio.ScanWords source.
 	if utf8.RuneCountInString(sep) == 1 {
+		// Ensure the separator character is valid.
 		firstRune, _ := utf8.DecodeRuneInString(sep)
-		return func(data []byte, atEOF bool) (advance int, token []byte, err error) {
-			// Ensure the separator character is valid.
-			if firstRune == utf8.RuneError {
+		if firstRune == utf8.RuneError {
+			return func(data []byte, atEOF bool) (int, []byte, error) {
 				return 0, nil, errors.New("Invalid rune in separator")
 			}
+		}
 
-			// Scan until we see a separator.
+		// The separator is valid.  Return a splitter customized to
+		// that separator.
+		returnedFinalToken := false // true=already returned a final, non-terminated token; false=didn't
+		return func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+			// Scan until we see a separator or run out of data.
 			for width, i := 0, 0; i < len(data); i += width {
 				var r rune
 				r, width = utf8.DecodeRune(data[i:])
@@ -131,9 +136,11 @@ func (s *Script) makeSplitter(sep string) func([]byte, bool) (int, []byte, error
 				}
 			}
 
-			// If we're at EOF, we have a final, non-terminated
-			// token.  Return it.
-			if atEOF {
+			// We didn't see a separator.  If we're at EOF, we have
+			// a final, non-terminated token.  Return it (unless we
+			// already did).
+			if atEOF && !returnedFinalToken {
+				returnedFinalToken = true
 				return len(data), data, nil
 			}
 

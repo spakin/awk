@@ -109,23 +109,23 @@ func (s *Script) AppendStmt(p PatternFunc, a ActionFunc) {
 	s.rules = append(s.rules, stmt)
 }
 
-// Return a splitter that can split the next record or field.
-func (s *Script) makeSplitter(sep string) func([]byte, bool) (int, []byte, error) {
+// makeFieldSplitter returns a splitter that returns the next field.
+func (s *Script) makeFieldSplitter() func([]byte, bool) (int, []byte, error) {
 	// Separator is empty: return the next rune.
-	if sep == "" {
+	if s.FS == "" {
 		return bufio.ScanRunes
 	}
 
 	// Separator is a single space: return the next word.
-	if sep == " " {
+	if s.FS == " " {
 		return bufio.ScanWords
 	}
 
 	// Separator is a single character: scan based on that.  This code is
 	// derived from the bufio.ScanWords source.
-	if utf8.RuneCountInString(sep) == 1 {
+	if utf8.RuneCountInString(s.FS) == 1 {
 		// Ensure the separator character is valid.
-		firstRune, _ := utf8.DecodeRuneInString(sep)
+		firstRune, _ := utf8.DecodeRuneInString(s.FS)
 		if firstRune == utf8.RuneError {
 			return func(data []byte, atEOF bool) (int, []byte, error) {
 				return 0, nil, errors.New("Invalid rune in separator")
@@ -170,6 +170,70 @@ func (s *Script) makeSplitter(sep string) func([]byte, bool) (int, []byte, error
 	}
 }
 
+// makeRecordSplitter returns a splitter that returns the next record.
+// Although all the AWK documentation I've read define RS as a record
+// separator, as far as I can tell, AWK in fact treats it as a record
+// *terminator* so we do, too.
+func (s *Script) makeRecordSplitter() func([]byte, bool) (int, []byte, error) {
+	// Terminator is empty: return the next rune.
+	if s.RS == "" {
+		return bufio.ScanRunes
+	}
+
+	// Terminator is a single space: return the next word.
+	if s.RS == " " {
+		return bufio.ScanWords
+	}
+
+	// Terminator is a single character: scan based on that.  This code is
+	// derived from the bufio.ScanWords source.
+	if utf8.RuneCountInString(s.RS) == 1 {
+		// Ensure the terminator character is valid.
+		firstRune, _ := utf8.DecodeRuneInString(s.RS)
+		if firstRune == utf8.RuneError {
+			return func(data []byte, atEOF bool) (int, []byte, error) {
+				return 0, nil, errors.New("Invalid rune in terminator")
+			}
+		}
+
+		// The terminator is valid.  Return a splitter customized to
+		// that terminator.
+		returnedFinalToken := false // true=already returned a final, non-terminated token; false=didn't
+		return func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+			// Scan until we see a terminator or run out of data.
+			for width, i := 0, 0; i < len(data); i += width {
+				var r rune
+				r, width = utf8.DecodeRune(data[i:])
+				if r == utf8.RuneError {
+					return 0, nil, errors.New("Invalid rune in input data")
+				}
+				if r == firstRune {
+					return i + width, data[:i], nil
+				}
+			}
+
+			// We didn't see a terminator.  If we're at EOF, we have
+			// a final, non-terminated token.  Return it (unless we
+			// already did).
+			if atEOF && !returnedFinalToken {
+				returnedFinalToken = true
+				return len(data), data, nil
+			}
+
+			// Request more data.
+			return 0, nil, nil
+		}
+	}
+
+	// Terminator is multiple characters: treat it as a regular expression,
+	// and scan based on that.  This code is also derived from the
+	// bufio.ScanWords source.
+	return func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+		// BUG(pakin): Multiple-character terminators are not yet implemented.
+		return 0, nil, errors.New("Multiple-character separators are not yet implemented")
+	}
+}
+
 // Read the next record from a stream and return it.
 func (s *Script) readRecord() (string, error) {
 	// Reuse the existing scanner if RS hasn't changed.  Otherwise, create
@@ -177,7 +241,7 @@ func (s *Script) readRecord() (string, error) {
 	if s.rsScanner == nil || s.RS != s.prevRS {
 		// Create a new scanner.
 		s.rsScanner = bufio.NewScanner(s.input)
-		s.rsScanner.Split(s.makeSplitter(s.RS))
+		s.rsScanner.Split(s.makeRecordSplitter())
 		s.prevRS = s.RS
 	}
 
@@ -196,7 +260,7 @@ func (s *Script) readRecord() (string, error) {
 // As in real AWK, field 0 is the entire record.
 func (s *Script) splitRecord(rec string) error {
 	fsScanner := bufio.NewScanner(strings.NewReader(rec))
-	fsScanner.Split(s.makeSplitter(s.FS))
+	fsScanner.Split(s.makeFieldSplitter())
 	fields := make([]*Value, 0, 100)
 	fields = append(fields, s.NewValue(rec))
 	for fsScanner.Scan() {

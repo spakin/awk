@@ -76,15 +76,21 @@ func Begin(s *Script) bool {
 	return s.parsing == atBegin
 }
 
+// The matchAny pattern is true in the middle of a script, when a record is
+// available for parsing.
+func matchAny(s *Script) bool {
+	return s.parsing == inMiddle
+}
+
 // The End pattern is true at the end of a script, after all records have been
 // read.
 func End(s *Script) bool {
 	return s.parsing == atEnd
 }
 
-// The Print statement outputs the current record verbatim to the standard
-// output device.
-func Print(s *Script) {
+// The printRecord statement outputs the current record verbatim to the
+// standard output device.
+func printRecord(s *Script) {
 	fmt.Printf("%v%s", s.F[0], s.RS)
 }
 
@@ -93,6 +99,12 @@ func (s *Script) AppendStmt(p PatternFunc, a ActionFunc) {
 	stmt := statement{
 		Pattern: p,
 		Action:  a,
+	}
+	if p == nil {
+		stmt.Pattern = matchAny
+	}
+	if a == nil {
+		stmt.Action = printRecord
 	}
 	s.rules = append(s.rules, stmt)
 }

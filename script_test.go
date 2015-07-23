@@ -94,3 +94,14 @@ func TestBeginEnd(t *testing.T) {
 		t.Fatalf("Expected 1234 but received %d", val)
 	}
 }
+
+// TestSimpleSum tests adding up a column of numbers.
+func TestSimpleSum(t *testing.T) {
+	scr := NewScript()
+	sum := 0
+	scr.AppendStmt(nil, func(s *Script) { sum += s.F[1].Int() })
+	scr.Run(strings.NewReader("2\n4\n6\n8\n"))
+	if sum != 20 {
+		t.Fatalf("Expected 20 but received %d", sum)
+	}
+}

@@ -4,6 +4,7 @@ package awk
 
 import (
 	"bufio"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -50,5 +51,46 @@ func TestReadRecordWhitespace(t *testing.T) {
 		if rec != "banana" {
 			t.Fatalf("Expected %q but received %q", "banana", rec)
 		}
+	}
+}
+
+// TestSplitRecordWhitespace tests splitting a record into
+// whitespace-separated fields.
+func TestSplitRecordWhitespace(t *testing.T) {
+	recordStr := "The woods are lovely,  dark and    deep,"
+	fields := regexp.MustCompile(`\s+`).Split(recordStr, -1)
+	scr := NewScript()
+	scr.splitRecord(recordStr)
+	for i, f := range fields {
+		if scr.F[i+1].String() != f {
+			t.Fatalf("Expected %q but received %q", f, scr.F[i+1])
+		}
+	}
+}
+
+// TestSplitRecordComma tests splitting a record into comma-separated fields.
+func TestSplitRecordComma(t *testing.T) {
+	recordStr := "The woods are lovely,  dark and    deep,"
+	fields := strings.Split(recordStr, ",")
+	scr := NewScript()
+	scr.FS = ","
+	scr.splitRecord(recordStr)
+	for i, f := range fields {
+		if scr.F[i+1].String() != f {
+			t.Fatalf("Expected %q but received %q", f, scr.F[i+1])
+		}
+	}
+}
+
+// TestBeginEnd tests creating and running a script that contains a Begin
+// action and an End action.
+func TestBeginEnd(t *testing.T) {
+	scr := NewScript()
+	val := 123
+	scr.AppendStmt(Begin, func(s *Script) { val *= 10 })
+	scr.AppendStmt(End, func(s *Script) { val += 4 })
+	scr.Run(strings.NewReader("dummy data"))
+	if val != 1234 {
+		t.Fatalf("Expected 1234 but received %d", val)
 	}
 }

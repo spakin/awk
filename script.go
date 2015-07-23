@@ -5,11 +5,11 @@ package awk
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"io"
 	"regexp"
 	"strings"
 	"unicode/utf8"
-	"fmt"
 )
 
 // A parseState indicates where we are in our parsing state.
@@ -32,7 +32,7 @@ type Script struct {
 	RS      string      // Input record separator, newline by default
 	F       []*Value    // Fields in the current record; F[0] is the entire record
 
-	rules     []Statement               // List of pattern-action pairs to execute
+	rules     []statement               // List of pattern-action pairs to execute
 	regexps   map[string]*regexp.Regexp // Map from a regular-expression string to a compiled regular expression
 	rsScanner *bufio.Scanner            // Scanner associated with RS
 	prevRS    string                    // RS associated with rsScanner
@@ -48,15 +48,26 @@ func NewScript() *Script {
 		NF:      0,
 		NR:      0,
 		RS:      "\n",
-		rules:   make([]Statement, 0, 10),
+		rules:   make([]statement, 0, 10),
 		regexps: make(map[string]*regexp.Regexp, 10),
 	}
 }
 
-// A Statement represents a single pattern-action pair.
-type Statement struct {
-	Pattern func(*Script) bool // true: run Action; false: go to next statement
-	Action  func(*Script)      // Operations to perform when Pattern returns true
+// A PatternFunc represents a pattern to match against.  It is expected to
+// examine the state in the given Script then return either true or false.  If
+// it returns true, the corresponding ActionFunc is executed.  Otherwise, the
+// corresponding ActionFunc is not executed.
+type PatternFunc func(*Script) bool
+
+// An ActionFunc represents an action to perform when the corresponding
+// PatternFunc returns true.  It can be arbitrary Go code, such as to write
+// output to a file.
+type ActionFunc func(*Script)
+
+// A statement represents a single pattern-action pair.
+type statement struct {
+	Pattern PatternFunc
+	Action  ActionFunc
 }
 
 // The Begin pattern is true at the beginning of a script, before any records
@@ -78,8 +89,12 @@ func Print(s *Script) {
 }
 
 // AppendStmt appends a pattern-action pair to a Script.
-func (s *Script) AppendStmt(st Statement) {
-	s.rules = append(s.rules, st)
+func (s *Script) AppendStmt(p PatternFunc, a ActionFunc) {
+	stmt := statement{
+		Pattern: p,
+		Action:  a,
+	}
+	s.rules = append(s.rules, stmt)
 }
 
 // Return a splitter that can split the next record or field.
@@ -112,14 +127,14 @@ func (s *Script) makeSplitter(sep string) func([]byte, bool) (int, []byte, error
 					return 0, nil, errors.New("Invalid rune in input data")
 				}
 				if r == firstRune {
-					return i + width, data[0:i], nil
+					return i + width, data[:i], nil
 				}
 			}
 
-			// If we're at EOF, we have a final, non-empty,
-			// non-terminated token. Return it.
-			if atEOF && len(data) > 0 {
-				return len(data), data[0:], nil
+			// If we're at EOF, we have a final, non-terminated
+			// token.  Return it.
+			if atEOF {
+				return len(data), data, nil
 			}
 
 			// Request more data.
@@ -159,10 +174,12 @@ func (s *Script) readRecord() (string, error) {
 }
 
 // Split a record into fields.  Store the fields in the Script struct's F field.
+// As in real AWK, field 0 is the entire record.
 func (s *Script) splitRecord(rec string) error {
 	fsScanner := bufio.NewScanner(strings.NewReader(rec))
 	fsScanner.Split(s.makeSplitter(s.FS))
 	fields := make([]*Value, 0, 100)
+	fields = append(fields, s.NewValue(rec))
 	for fsScanner.Scan() {
 		fields = append(fields, s.NewValue(fsScanner.Text()))
 	}

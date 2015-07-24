@@ -54,6 +54,23 @@ func TestReadRecordWhitespace(t *testing.T) {
 	}
 }
 
+// TestReadRecordRE tests reading regular-expression-separated records.
+func TestReadRecordRE(t *testing.T) {
+	allRecordsStr := "hello<foo>howdy</foo>hello<bar>yellow</bar>hello<baz>goodbye</baz>"
+	scr := NewScript()
+	scr.input = bufio.NewReader(strings.NewReader(allRecordsStr))
+	scr.SetRS(`<[^>]+>[^<]*<[^>]+>`)
+	for i := 0; i < 3; i++ {
+		rec, err := scr.readRecord()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if rec != "hello" {
+			t.Fatalf("Expected %q but received %q", "hello", rec)
+		}
+	}
+}
+
 // TestSplitRecordWhitespace tests splitting a record into
 // whitespace-separated fields.
 func TestSplitRecordWhitespace(t *testing.T) {

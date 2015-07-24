@@ -314,11 +314,33 @@ func (s *Script) makeRecordSplitter() func([]byte, bool) (int, []byte, error) {
 	}
 
 	// Terminator is multiple characters: treat it as a regular expression,
-	// and scan based on that.  This code is also derived from the
-	// bufio.ScanWords source.
+	// and scan based on that.  First, we ensure the terminator character
+	// is valid.
+	termRegexp, err := s.compileRegexp(s.rs)
+	if err != nil {
+		return func(data []byte, atEOF bool) (int, []byte, error) {
+			return 0, nil, err
+		}
+	}
+
+	// The regular expression is valid.  Return a splitter customized to
+	// that regular expression.
 	return func(data []byte, atEOF bool) (advance int, token []byte, err error) {
-		// BUG(pakin): Multiple-character terminators are not yet implemented.
-		return 0, nil, errors.New("Multiple-character separators are not yet implemented")
+		// If we match the regular expression, return everything up to
+		// the match.
+		loc := termRegexp.FindIndex(data)
+		if loc != nil {
+			return loc[1], data[:loc[0]], nil
+		}
+
+		// We didn't see a terminator.  If we're at EOF, we have a
+		// final, non-terminated token.  Return it if it's nonempty.
+		if atEOF && len(data) > 0 {
+			return len(data), data, nil
+		}
+
+		// Request more data.
+		return 0, nil, nil
 	}
 }
 

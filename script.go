@@ -26,10 +26,10 @@ const (
 type Script struct {
 	State   interface{} // Arbitrary, user-supplied data
 	ConvFmt string      // Conversion format for numbers, "%.6g" by default
-	NF      int         // Number of fields in the current input record
-	NR      int         // Number of input records seen so far
 	F       []*Value    // Fields in the current record; F[0] is the entire record
 
+	nr        int                       // Number of input records seen so far
+	nf        int                       // Number of fields in the current input record
 	rs        string                    // Input record separator, newline by default
 	fs        string                    // Input field separator, space by default
 	rules     []statement               // List of pattern-action pairs to execute
@@ -43,8 +43,8 @@ type Script struct {
 func NewScript() *Script {
 	return &Script{
 		ConvFmt: "%.6g",
-		NF:      0,
-		NR:      0,
+		nr:      0,
+		nf:      0,
 		rs:      "\n",
 		fs:      " ",
 		rules:   make([]statement, 0, 10),
@@ -52,8 +52,11 @@ func NewScript() *Script {
 	}
 }
 
-// RS returns the current input record separator (really, a record terminator).
-func (s Script) RS() string { return s.rs }
+// NR returns the number of the current input record (1-based).
+func (s Script) NR() int { return s.nr }
+
+// NF returns the number of fields in the current input record.
+func (s Script) NF() int { return s.nf }
 
 // SetRS sets the current input record separator (really, a record terminator).
 func (s *Script) SetRS(rs string) {
@@ -66,9 +69,6 @@ func (s *Script) SetRS(rs string) {
 		s.rsScanner.Split(s.makeRecordSplitter())
 	}
 }
-
-// FS returns the current input field separator.
-func (s Script) FS() string { return s.fs }
 
 // SetFS sets the current input field separator.
 func (s *Script) SetFS(fs string) { s.fs = fs }
@@ -303,8 +303,8 @@ func (s *Script) Run(r io.Reader) error {
 
 	// Reinitialize most of our state.
 	s.ConvFmt = "%.6g"
-	s.NF = 0
-	s.NR = 0
+	s.nf = 0
+	s.nr = 0
 	s.SetFS(" ")
 	s.SetRS("\n")
 
@@ -323,7 +323,7 @@ func (s *Script) Run(r io.Reader) error {
 			}
 			return err
 		}
-		s.NR++
+		s.nr++
 
 		// Split the record into its constituent fields.
 		s.splitRecord(rec)

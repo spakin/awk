@@ -117,7 +117,7 @@ func TestRunTwice(t *testing.T) {
 	// Run once.
 	scr := NewScript()
 	sum := 0
-	scr.AppendStmt(nil, func(s *Script) { sum += s.F[1].Int() * s.NR })
+	scr.AppendStmt(nil, func(s *Script) { sum += s.F[1].Int() * s.NR() })
 	err := scr.Run(strings.NewReader("1\n3\n5\n7\n"))
 	if err != nil {
 		t.Fatal(err)

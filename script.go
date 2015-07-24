@@ -198,7 +198,6 @@ func (s *Script) makeRecordSplitter() func([]byte, bool) (int, []byte, error) {
 
 		// The terminator is valid.  Return a splitter customized to
 		// that terminator.
-		returnedFinalToken := false // true=already returned a final, non-terminated token; false=didn't
 		return func(data []byte, atEOF bool) (advance int, token []byte, err error) {
 			// Scan until we see a terminator or run out of data.
 			for width, i := 0, 0; i < len(data); i += width {
@@ -212,11 +211,10 @@ func (s *Script) makeRecordSplitter() func([]byte, bool) (int, []byte, error) {
 				}
 			}
 
-			// We didn't see a terminator.  If we're at EOF, we have
-			// a final, non-terminated token.  Return it (unless we
-			// already did).
-			if atEOF && !returnedFinalToken {
-				returnedFinalToken = true
+			// We didn't see a terminator.  If we're at EOF, we
+			// have a final, non-terminated token.  Return it if
+			// it's nonempty.
+			if atEOF && len(data) > 0 {
 				return len(data), data, nil
 			}
 

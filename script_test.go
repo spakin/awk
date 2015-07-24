@@ -82,6 +82,31 @@ func TestSplitRecordComma(t *testing.T) {
 	}
 }
 
+// TestSplitFieldRE tests splitting a field based on a regular expression.
+func TestSplitFieldRE(t *testing.T) {
+	// Determine what we want to provide and see in return.
+	recordStr := "foo-bar---baz------------quux--corge-grault---garply-"
+	re, err := regexp.Compile(`\w+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	words := re.FindAllString(recordStr, -1)
+	words = append(words, "")
+
+	// Split the record.
+	scr := NewScript()
+	scr.SetFS("-+")
+	scr.splitRecord(recordStr)
+
+	// Check the result.
+	for i := 1; i <= scr.NF; i++ {
+		f := scr.F(i).String()
+		if f != words[i-1] {
+			t.Fatalf("Expected %q for field %d but received %q", words[i-1], i, f)
+		}
+	}
+}
+
 // TestBeginEnd tests creating and running a script that contains a Begin
 // action and an End action.
 func TestBeginEnd(t *testing.T) {

@@ -92,8 +92,11 @@ func (s *Script) SetF(i int, v *Value) {
 	}
 
 	// Index larger than NF: extend NF and try again.
-	for i >= len(s.fields) {
-		s.fields = append(s.fields, s.NewValue(""))
+	if i >= len(s.fields) {
+		for i >= len(s.fields) {
+			s.fields = append(s.fields, s.NewValue(""))
+		}
+		s.NF = len(s.fields) - 1
 	}
 
 	// Index not larger than (the possibly modified) NF: write the field.
@@ -156,6 +159,21 @@ func (s *Script) AppendStmt(p PatternFunc, a ActionFunc) {
 	s.rules = append(s.rules, stmt)
 }
 
+// compileRegexp caches and returns the result of regexp.Compile.
+func (s *Script) compileRegexp(expr string) (*regexp.Regexp, error) {
+	re, found := s.regexps[expr]
+	if found {
+		return re, nil
+	}
+	var err error
+	re, err = regexp.Compile(expr)
+	if err != nil {
+		return nil, err
+	}
+	s.regexps[expr] = re
+	return re, nil
+}
+
 // makeFieldSplitter returns a splitter that returns the next field.
 func (s *Script) makeFieldSplitter() func([]byte, bool) (int, []byte, error) {
 	// Separator is empty: return the next rune.
@@ -168,7 +186,7 @@ func (s *Script) makeFieldSplitter() func([]byte, bool) (int, []byte, error) {
 		return bufio.ScanWords
 	}
 
-	// Separator is a single character: scan based on that.  This code is
+	// Separator is a single character: split based on that.  This code is
 	// derived from the bufio.ScanWords source.
 	if utf8.RuneCountInString(s.fs) == 1 {
 		// Ensure the separator character is valid.
@@ -209,11 +227,36 @@ func (s *Script) makeFieldSplitter() func([]byte, bool) (int, []byte, error) {
 	}
 
 	// Separator is multiple characters: treat it as a regular expression,
-	// and scan based on that.  This code is also derived from the
-	// bufio.ScanWords source.
+	// and scan based on that.  First, we ensure the separator character is
+	// valid.
+	sepRegexp, err := s.compileRegexp(s.fs)
+	if err != nil {
+		return func(data []byte, atEOF bool) (int, []byte, error) {
+			return 0, nil, err
+		}
+	}
+
+	// The regular expression is valid.  Return a splitter customized to
+	// that regular expression.
+	returnedFinalToken := false // true=already returned a final, non-terminated token; false=didn't
 	return func(data []byte, atEOF bool) (advance int, token []byte, err error) {
-		// BUG(pakin): Multiple-character separators are not yet implemented.
-		return 0, nil, errors.New("Multiple-character separators are not yet implemented")
+		// If we match the regular expression, return everything up to
+		// the match.
+		loc := sepRegexp.FindIndex(data)
+		if loc != nil {
+			return loc[1], data[:loc[0]], nil
+		}
+
+		// We didn't see a separator.  If we're at EOF, we have a
+		// final, non-terminated token.  Return it (unless we already
+		// did).
+		if atEOF && !returnedFinalToken {
+			returnedFinalToken = true
+			return len(data), data, nil
+		}
+
+		// Request more data.
+		return 0, nil, nil
 	}
 }
 
@@ -292,8 +335,8 @@ func (s *Script) readRecord() (string, error) {
 	}
 }
 
-// Split a record into fields.  Store the fields in the Script struct's F field.
-// As in real AWK, field 0 is the entire record.
+// Split a record into fields.  Store the fields in the Script struct's F field
+// and update NF.  As in real AWK, field 0 is the entire record.
 func (s *Script) splitRecord(rec string) error {
 	fsScanner := bufio.NewScanner(strings.NewReader(rec))
 	fsScanner.Split(s.makeFieldSplitter())
@@ -306,6 +349,7 @@ func (s *Script) splitRecord(rec string) error {
 		return err
 	}
 	s.fields = fields
+	s.NF = len(fields) - 1
 	return nil
 }
 

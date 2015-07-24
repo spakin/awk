@@ -89,7 +89,10 @@ func TestBeginEnd(t *testing.T) {
 	val := 123
 	scr.AppendStmt(Begin, func(s *Script) { val *= 10 })
 	scr.AppendStmt(End, func(s *Script) { val += 4 })
-	scr.Run(strings.NewReader("dummy data"))
+	err := scr.Run(strings.NewReader("dummy data"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	if val != 1234 {
 		t.Fatalf("Expected 1234 but received %d", val)
 	}
@@ -100,8 +103,36 @@ func TestSimpleSum(t *testing.T) {
 	scr := NewScript()
 	sum := 0
 	scr.AppendStmt(nil, func(s *Script) { sum += s.F[1].Int() })
-	scr.Run(strings.NewReader("2\n4\n6\n8\n"))
+	err := scr.Run(strings.NewReader("2\n4\n6\n8\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	if sum != 20 {
 		t.Fatalf("Expected 20 but received %d", sum)
+	}
+}
+
+// TestRunTwice tests running the same script twice.
+func TestRunTwice(t *testing.T) {
+	// Run once.
+	scr := NewScript()
+	sum := 0
+	scr.AppendStmt(nil, func(s *Script) { sum += s.F[1].Int() * s.NR })
+	err := scr.Run(strings.NewReader("1\n3\n5\n7\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sum != 50 {
+		t.Fatalf("Expected 50 but received %d on the first trial", sum)
+	}
+
+	// Run again.
+	sum = 0
+	err = scr.Run(strings.NewReader("1\n3\n5\n7\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sum != 50 {
+		t.Fatalf("Expected 50 but received %d on the second trial", sum)
 	}
 }

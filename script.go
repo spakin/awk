@@ -273,6 +273,14 @@ func (s *Script) splitRecord(rec string) error {
 
 // Execute a script against a given input stream.
 func (s *Script) Run(r io.Reader) error {
+	// Reinitialize most of our state.
+	s.ConvFmt = "%.6g"
+	s.FS = " "
+	s.NF = 0
+	s.NR = 0
+	s.RS = "\n"
+	s.prevRS = ""
+
 	// Define a helper function that makes a pass through all user-defined
 	// statements.
 	walkStatements := func() {
@@ -305,6 +313,7 @@ func (s *Script) Run(r io.Reader) error {
 			}
 			return err
 		}
+		s.NR++
 
 		// Split the record into its constituent fields.
 		s.splitRecord(rec)

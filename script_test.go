@@ -62,8 +62,8 @@ func TestSplitRecordWhitespace(t *testing.T) {
 	scr := NewScript()
 	scr.splitRecord(recordStr)
 	for i, f := range fields {
-		if scr.F[i+1].String() != f {
-			t.Fatalf("Expected %q but received %q", f, scr.F[i+1])
+		if scr.F(i+1).String() != f {
+			t.Fatalf("Expected %q but received %q", f, scr.F(i+1))
 		}
 	}
 }
@@ -76,8 +76,8 @@ func TestSplitRecordComma(t *testing.T) {
 	scr.SetFS(",")
 	scr.splitRecord(recordStr)
 	for i, f := range fields {
-		if scr.F[i+1].String() != f {
-			t.Fatalf("Expected %q but received %q", f, scr.F[i+1])
+		if scr.F(i+1).String() != f {
+			t.Fatalf("Expected %q but received %q", f, scr.F(i+1))
 		}
 	}
 }
@@ -102,7 +102,7 @@ func TestBeginEnd(t *testing.T) {
 func TestSimpleSum(t *testing.T) {
 	scr := NewScript()
 	sum := 0
-	scr.AppendStmt(nil, func(s *Script) { sum += s.F[1].Int() })
+	scr.AppendStmt(nil, func(s *Script) { sum += s.F(1).Int() })
 	err := scr.Run(strings.NewReader("2\n4\n6\n8\n"))
 	if err != nil {
 		t.Fatal(err)
@@ -117,7 +117,7 @@ func TestRunTwice(t *testing.T) {
 	// Run once.
 	scr := NewScript()
 	sum := 0
-	scr.AppendStmt(nil, func(s *Script) { sum += s.F[1].Int() * s.NR() })
+	scr.AppendStmt(nil, func(s *Script) { sum += s.F(1).Int() * s.NR })
 	err := scr.Run(strings.NewReader("1\n3\n5\n7\n"))
 	if err != nil {
 		t.Fatal(err)
@@ -134,5 +134,37 @@ func TestRunTwice(t *testing.T) {
 	}
 	if sum != 50 {
 		t.Fatalf("Expected 50 but received %d on the second trial", sum)
+	}
+}
+
+// TestFieldCreation tests creating ("autovivifying" in Perl-speak) new fields.
+func TestFieldCreation(t *testing.T) {
+	scr := NewScript()
+	sum := 0
+	scr.AppendStmt(nil, func(s *Script) { sum += 1 << uint(s.F(2).Int()) })
+	err := scr.Run(strings.NewReader("x 3\ny 2\n\nz 1\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sum != 15 {
+		t.Fatalf("Expected 15 but received %d", sum)
+	}
+}
+
+// TestRecordReplacement tests overwriting field 0 with a new record.
+func TestRecordReplacement(t *testing.T) {
+	scr := NewScript()
+	sum := 0
+	scr.AppendStmt(nil, func(s *Script) {
+		sum += s.F(2).Int()
+		s.SetF(0, s.NewValue("10 20 30 40 50"))
+		sum += s.F(5).Int()
+	})
+	err := scr.Run(strings.NewReader("x 3\ny 2\n\nz 1\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sum != 206 {
+		t.Fatalf("Expected 206 but received %d", sum)
 	}
 }

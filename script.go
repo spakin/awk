@@ -26,13 +26,13 @@ const (
 type Script struct {
 	State   interface{} // Arbitrary, user-supplied data
 	ConvFmt string      // Conversion format for numbers, "%.6g" by default
-	F       []*Value    // Fields in the current record; F[0] is the entire record
+	NR      int         // Number of input records seen so far
+	NF      int         // Number of fields in the current input record
 
-	nr        int                       // Number of input records seen so far
-	nf        int                       // Number of fields in the current input record
 	rs        string                    // Input record separator, newline by default
 	fs        string                    // Input field separator, space by default
 	rules     []statement               // List of pattern-action pairs to execute
+	fields    []*Value                  // Fields in the current record; fields[0] is the entire record
 	regexps   map[string]*regexp.Regexp // Map from a regular-expression string to a compiled regular expression
 	rsScanner *bufio.Scanner            // Scanner associated with RS
 	input     *bufio.Reader             // Script input stream
@@ -43,20 +43,15 @@ type Script struct {
 func NewScript() *Script {
 	return &Script{
 		ConvFmt: "%.6g",
-		nr:      0,
-		nf:      0,
+		NR:      0,
+		NF:      0,
 		rs:      "\n",
 		fs:      " ",
+		fields:  make([]*Value, 0),
 		rules:   make([]statement, 0, 10),
 		regexps: make(map[string]*regexp.Regexp, 10),
 	}
 }
-
-// NR returns the number of the current input record (1-based).
-func (s Script) NR() int { return s.nr }
-
-// NF returns the number of fields in the current input record.
-func (s Script) NF() int { return s.nf }
 
 // SetRS sets the current input record separator (really, a record terminator).
 func (s *Script) SetRS(rs string) {
@@ -72,6 +67,38 @@ func (s *Script) SetRS(rs string) {
 
 // SetFS sets the current input field separator.
 func (s *Script) SetFS(fs string) { s.fs = fs }
+
+// F returns a specified field of the current record.  Field numbers are
+// 1-based.  Field 0 refers to the entire record.  Requesting a field greater
+// than NF returns a zero value.  Requesting a negative field number panics
+// with an out-of-bounds error.
+func (s *Script) F(i int) *Value {
+	if i < len(s.fields) {
+		return s.fields[i]
+	}
+	return s.NewValue("")
+}
+
+// SetF sets a field of the current record to the given Value.  Field numbers
+// are 1-based.  Field 0 refers to the entire record.  Setting it causes the
+// entire line to be reparsed (and NF recomputed).  Setting a field numbered
+// larger than NF extends NF to that value.  Setting a negative field number
+// panics with an out-of-bounds error.
+func (s *Script) SetF(i int, v *Value) {
+	// Zero index: Assign and reparse the entire record.
+	if i == 0 {
+		s.splitRecord(v.String())
+		return
+	}
+
+	// Index larger than NF: extend NF and try again.
+	for i >= len(s.fields) {
+		s.fields = append(s.fields, s.NewValue(""))
+	}
+
+	// Index not larger than (the possibly modified) NF: write the field.
+	s.fields[i] = v
+}
 
 // A PatternFunc represents a pattern to match against.  It is expected to
 // examine the state in the given Script then return either true or false.  If
@@ -111,7 +138,7 @@ func End(s *Script) bool {
 // The printRecord statement outputs the current record verbatim to the
 // standard output device.
 func printRecord(s *Script) {
-	fmt.Printf("%v\n", s.F[0])
+	fmt.Printf("%v\n", s.fields[0])
 }
 
 // AppendStmt appends a pattern-action pair to a Script.
@@ -278,7 +305,7 @@ func (s *Script) splitRecord(rec string) error {
 	if err := fsScanner.Err(); err != nil {
 		return err
 	}
-	s.F = fields
+	s.fields = fields
 	return nil
 }
 
@@ -303,8 +330,8 @@ func (s *Script) Run(r io.Reader) error {
 
 	// Reinitialize most of our state.
 	s.ConvFmt = "%.6g"
-	s.nf = 0
-	s.nr = 0
+	s.NF = 0
+	s.NR = 0
 	s.SetFS(" ")
 	s.SetRS("\n")
 
@@ -323,7 +350,7 @@ func (s *Script) Run(r io.Reader) error {
 			}
 			return err
 		}
-		s.nr++
+		s.NR++
 
 		// Split the record into its constituent fields.
 		s.splitRecord(rec)

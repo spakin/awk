@@ -16,8 +16,8 @@ func TestReadRecordNewline(t *testing.T) {
 	allRecordsStr := strings.Join(allRecords, "\n")
 	scr := NewScript()
 	doTest := func() {
-		scr.rsScanner = nil // Force a new input stream.
 		scr.input = bufio.NewReader(strings.NewReader(allRecordsStr))
+		scr.SetRS("\n")
 		for _, oneRecord := range allRecords {
 			rec, err := scr.readRecord()
 			if err != nil {
@@ -42,7 +42,7 @@ func TestReadRecordWhitespace(t *testing.T) {
 	allRecordsStr := "  banana banana banana  banana   banana banana\tbanana banana\nbanana banana"
 	scr := NewScript()
 	scr.input = bufio.NewReader(strings.NewReader(allRecordsStr))
-	scr.RS = " "
+	scr.SetRS(" ")
 	for i := 0; i < 10; i++ {
 		rec, err := scr.readRecord()
 		if err != nil {
@@ -73,7 +73,7 @@ func TestSplitRecordComma(t *testing.T) {
 	recordStr := "The woods are lovely,  dark and    deep,"
 	fields := strings.Split(recordStr, ",")
 	scr := NewScript()
-	scr.FS = ","
+	scr.SetFS(",")
 	scr.splitRecord(recordStr)
 	for i, f := range fields {
 		if scr.F[i+1].String() != f {

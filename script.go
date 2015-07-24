@@ -26,16 +26,15 @@ const (
 type Script struct {
 	State   interface{} // Arbitrary, user-supplied data
 	ConvFmt string      // Conversion format for numbers, "%.6g" by default
-	FS      string      // Input field separator, space by default
 	NF      int         // Number of fields in the current input record
 	NR      int         // Number of input records seen so far
-	RS      string      // Input record separator, newline by default
 	F       []*Value    // Fields in the current record; F[0] is the entire record
 
+	rs        string                    // Input record separator, newline by default
+	fs        string                    // Input field separator, space by default
 	rules     []statement               // List of pattern-action pairs to execute
 	regexps   map[string]*regexp.Regexp // Map from a regular-expression string to a compiled regular expression
 	rsScanner *bufio.Scanner            // Scanner associated with RS
-	prevRS    string                    // RS associated with rsScanner
 	input     *bufio.Reader             // Script input stream
 	parsing   parseState                // What we're currently parsing
 }
@@ -44,14 +43,35 @@ type Script struct {
 func NewScript() *Script {
 	return &Script{
 		ConvFmt: "%.6g",
-		FS:      " ",
 		NF:      0,
 		NR:      0,
-		RS:      "\n",
+		rs:      "\n",
+		fs:      " ",
 		rules:   make([]statement, 0, 10),
 		regexps: make(map[string]*regexp.Regexp, 10),
 	}
 }
+
+// RS returns the current input record separator (really, a record terminator).
+func (s Script) RS() string { return s.rs }
+
+// SetRS sets the current input record separator (really, a record terminator).
+func (s *Script) SetRS(rs string) {
+	// Store the new record terminator.
+	s.rs = rs
+
+	// Create (and store) a new scanner based on the new record terminator.
+	if s.input != nil {
+		s.rsScanner = bufio.NewScanner(s.input)
+		s.rsScanner.Split(s.makeRecordSplitter())
+	}
+}
+
+// FS returns the current input field separator.
+func (s Script) FS() string { return s.fs }
+
+// SetFS sets the current input field separator.
+func (s *Script) SetFS(fs string) { s.fs = fs }
 
 // A PatternFunc represents a pattern to match against.  It is expected to
 // examine the state in the given Script then return either true or false.  If
@@ -91,7 +111,7 @@ func End(s *Script) bool {
 // The printRecord statement outputs the current record verbatim to the
 // standard output device.
 func printRecord(s *Script) {
-	fmt.Printf("%v%s", s.F[0], s.RS)
+	fmt.Printf("%v\n", s.F[0])
 }
 
 // AppendStmt appends a pattern-action pair to a Script.
@@ -112,20 +132,20 @@ func (s *Script) AppendStmt(p PatternFunc, a ActionFunc) {
 // makeFieldSplitter returns a splitter that returns the next field.
 func (s *Script) makeFieldSplitter() func([]byte, bool) (int, []byte, error) {
 	// Separator is empty: return the next rune.
-	if s.FS == "" {
+	if s.fs == "" {
 		return bufio.ScanRunes
 	}
 
 	// Separator is a single space: return the next word.
-	if s.FS == " " {
+	if s.fs == " " {
 		return bufio.ScanWords
 	}
 
 	// Separator is a single character: scan based on that.  This code is
 	// derived from the bufio.ScanWords source.
-	if utf8.RuneCountInString(s.FS) == 1 {
+	if utf8.RuneCountInString(s.fs) == 1 {
 		// Ensure the separator character is valid.
-		firstRune, _ := utf8.DecodeRuneInString(s.FS)
+		firstRune, _ := utf8.DecodeRuneInString(s.fs)
 		if firstRune == utf8.RuneError {
 			return func(data []byte, atEOF bool) (int, []byte, error) {
 				return 0, nil, errors.New("Invalid rune in separator")
@@ -176,20 +196,20 @@ func (s *Script) makeFieldSplitter() func([]byte, bool) (int, []byte, error) {
 // *terminator* so we do, too.
 func (s *Script) makeRecordSplitter() func([]byte, bool) (int, []byte, error) {
 	// Terminator is empty: return the next rune.
-	if s.RS == "" {
+	if s.rs == "" {
 		return bufio.ScanRunes
 	}
 
 	// Terminator is a single space: return the next word.
-	if s.RS == " " {
+	if s.rs == " " {
 		return bufio.ScanWords
 	}
 
 	// Terminator is a single character: scan based on that.  This code is
 	// derived from the bufio.ScanWords source.
-	if utf8.RuneCountInString(s.RS) == 1 {
+	if utf8.RuneCountInString(s.rs) == 1 {
 		// Ensure the terminator character is valid.
-		firstRune, _ := utf8.DecodeRuneInString(s.RS)
+		firstRune, _ := utf8.DecodeRuneInString(s.rs)
 		if firstRune == utf8.RuneError {
 			return func(data []byte, atEOF bool) (int, []byte, error) {
 				return 0, nil, errors.New("Invalid rune in terminator")
@@ -234,15 +254,6 @@ func (s *Script) makeRecordSplitter() func([]byte, bool) (int, []byte, error) {
 
 // Read the next record from a stream and return it.
 func (s *Script) readRecord() (string, error) {
-	// Reuse the existing scanner if RS hasn't changed.  Otherwise, create
-	// (and store) a new scanner.
-	if s.rsScanner == nil || s.RS != s.prevRS {
-		// Create a new scanner.
-		s.rsScanner = bufio.NewScanner(s.input)
-		s.rsScanner.Split(s.makeRecordSplitter())
-		s.prevRS = s.RS
-	}
-
 	// Return the next record.
 	if s.rsScanner.Scan() {
 		return s.rsScanner.Text(), nil
@@ -273,14 +284,6 @@ func (s *Script) splitRecord(rec string) error {
 
 // Execute a script against a given input stream.
 func (s *Script) Run(r io.Reader) error {
-	// Reinitialize most of our state.
-	s.ConvFmt = "%.6g"
-	s.FS = " "
-	s.NF = 0
-	s.NR = 0
-	s.RS = "\n"
-	s.prevRS = ""
-
 	// Define a helper function that makes a pass through all user-defined
 	// statements.
 	walkStatements := func() {
@@ -297,6 +300,13 @@ func (s *Script) Run(r io.Reader) error {
 		rb = bufio.NewReader(r)
 	}
 	s.input = rb
+
+	// Reinitialize most of our state.
+	s.ConvFmt = "%.6g"
+	s.NF = 0
+	s.NR = 0
+	s.SetFS(" ")
+	s.SetRS("\n")
 
 	// Process all Begin actions.
 	s.parsing = atBegin

@@ -262,3 +262,30 @@ func TestRecordChangeCase(t *testing.T) {
 		t.Fatalf("Expected 12 but received %d", sum)
 	}
 }
+
+// TestRecordBlankLines tests the AWK special case of blank-line-separated
+// records.
+func TestRecordBlankLines(t *testing.T) {
+	recordStr := "uno\ndos\n\ntres\ncuatro\n\ncinco,seis,siete\nocho\n\nnueve,diez\n\n"
+	expected := regexp.MustCompile(`[\n,]+`).Split(recordStr, -1)
+	expected = expected[:len(expected)-1] // Skip empty final record.
+	actual := make([]string, 0, 10)
+	scr := NewScript()
+	scr.SetRS("")
+	scr.SetFS(",")
+	scr.AppendStmt(nil, func(s *Script) {
+		for i := 1; i <= s.NF; i++ {
+			actual = append(actual, s.F(i).String())
+		}
+	})
+	err := scr.Run(strings.NewReader(recordStr))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, s1 := range expected {
+		s2 := actual[i]
+		if s1 != s2 {
+			t.Fatalf("Expected %v but received %v", expected, actual)
+		}
+	}
+}

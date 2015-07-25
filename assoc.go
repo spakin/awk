@@ -101,3 +101,21 @@ func (va *ValueArray) Get(args ...interface{}) *Value {
 	}
 	return vv
 }
+
+// Keys returns all keys in the associative array in undefined order.
+func (va *ValueArray) Keys() []*Value {
+	keys := make([]*Value, 0, len(va.data))
+	for kstr, _ := range va.data {
+		keys = append(keys, va.script.NewValue(kstr))
+	}
+	return keys
+}
+
+// Values returns all values in the associative array in undefined order.
+func (va *ValueArray) Values() []*Value {
+	vals := make([]*Value, 0, len(va.data))
+	for _, v := range va.data {
+		vals = append(vals, va.script.NewValue(v))
+	}
+	return vals
+}

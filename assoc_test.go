@@ -38,8 +38,8 @@ func TestValueValueArray(t *testing.T) {
 	}
 }
 
-// TestStringStringArray tests basic Get/Set operations on an associative array
-// that maps strings to strings.
+// TestStringStringArray tests Get/Set operations on an associative array that
+// maps strings to strings.
 func TestStringStringArray(t *testing.T) {
 	scr := NewScript()
 	a := scr.NewValueArray()
@@ -57,7 +57,7 @@ func TestStringStringArray(t *testing.T) {
 	}
 }
 
-// TestMultiDimArray tests basic Get/Set operations on a "multidimensional"
+// TestMultiDimArray tests Get/Set operations on a "multidimensional"
 // associative array.
 func TestMultiDimArray(t *testing.T) {
 	scr := NewScript()
@@ -74,5 +74,37 @@ func TestMultiDimArray(t *testing.T) {
 				t.Fatalf("Expected %d but received %d", i*10+j, got)
 			}
 		}
+	}
+}
+
+// TestArrayKeys tests the Keys operation on an associative array.
+func TestArrayKeys(t *testing.T) {
+	scr := NewScript()
+	a := scr.NewValueArray()
+	for i := 10; i <= 100; i += 10 {
+		a.Set(i, i*2)
+	}
+	ksum := 0
+	for _, k := range a.Keys() {
+		ksum += k.Int()
+	}
+	if ksum != 550 {
+		t.Fatalf("Expected 550 but received %d", ksum)
+	}
+}
+
+// TestArrayValues tests the Values operation on an associative array.
+func TestArrayValues(t *testing.T) {
+	scr := NewScript()
+	a := scr.NewValueArray()
+	for i := 10; i <= 100; i += 10 {
+		a.Set(i, i*2)
+	}
+	vsum := 0
+	for _, v := range a.Values() {
+		vsum += v.Int()
+	}
+	if vsum != 1100 {
+		t.Fatalf("Expected 1100 but received %d", vsum)
 	}
 }

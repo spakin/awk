@@ -30,7 +30,7 @@ type Value struct {
 // not map straightforwardly to one of {int, float64, string} are represented
 // by a zero value.
 func (s *Script) NewValue(v interface{}) *Value {
-	val := &Value{script: s}
+	val := &Value{}
 	switch v := v.(type) {
 	case uint:
 		val.ival = int(v)
@@ -91,9 +91,13 @@ func (s *Script) NewValue(v interface{}) *Value {
 		val.sval = v
 		val.sval_ok = true
 
+	case *Value:
+		*val = *v
+
 	default:
 		val.sval_ok = true
 	}
+	val.script = s
 	return val
 }
 

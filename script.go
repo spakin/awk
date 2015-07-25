@@ -27,6 +27,7 @@ const (
 type Script struct {
 	State   interface{} // Arbitrary, user-supplied data
 	ConvFmt string      // Conversion format for numbers, "%.6g" by default
+	SubSep  string      // Separator for simulated multidimensional arrays
 	NR      int         // Number of input records seen so far
 	NF      int         // Number of fields in the current input record
 
@@ -45,6 +46,7 @@ type Script struct {
 func NewScript() *Script {
 	return &Script{
 		ConvFmt: "%.6g",
+		SubSep:  "\034",
 		NR:      0,
 		NF:      0,
 		rs:      "\n",

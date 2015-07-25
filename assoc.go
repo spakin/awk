@@ -2,6 +2,10 @@
 
 package awk
 
+import (
+	"strings"
+)
+
 // A ValueArray maps Values to Values.
 type ValueArray struct {
 	script *Script           // Pointer to the script that produced this value
@@ -16,40 +20,82 @@ func (s *Script) NewValueArray() *ValueArray {
 	}
 }
 
-// Set assigns a Value to an index of a ValueArray.  The arguments can be
-// provided either as Values or as any types that can be converted to Values.
-func (va *ValueArray) Set(idx, val interface{}) {
-	// Convert the index and value to Values.
-	vi, ok := idx.(*Value)
-	if !ok {
-		vi = va.script.NewValue(idx)
-	}
-	vv, ok := val.(*Value)
-	if !ok {
-		vv = va.script.NewValue(val)
+// Set(index, value) assigns a Value to an index of a ValueArray.  Multiple
+// indexes can be specified to simulate multidimensional arrays.  The final
+// argument is always the value to assign.  Arguments can be provided either as
+// Values or as any types that can be converted to Values.
+func (va *ValueArray) Set(args ...interface{}) {
+	// Ensure we were given at least one index and a value.
+	if len(args) < 2 {
+		panic("ValueArray.Set requires at least one index and one value")
 	}
 
-	// Map using the string version of the index rather than the Value
-	// pointer.  Otherwise, two Values with the same contents would be
-	// treated as different.
-	va.data[vi.String()] = vv
+	// Convert each argument to a Value.
+	argVals := make([]*Value, len(args))
+	for i, arg := range args {
+		v, ok := arg.(*Value)
+		if !ok {
+			v = va.script.NewValue(arg)
+		}
+		argVals[i] = v
+	}
+
+	// Handle the most common case: one index and one value.
+	if len(args) == 2 {
+		va.data[argVals[0].String()] = argVals[1]
+		return
+	}
+
+	// Merge the indexes into a single string.
+	idxStrs := make([]string, len(argVals)-1)
+	for i, v := range argVals[:len(argVals)-1] {
+		idxStrs[i] = v.String()
+	}
+	idx := strings.Join(idxStrs, va.script.SubSep)
+
+	// Associate the final argument with the index string.
+	va.data[idx] = argVals[len(argVals)-1]
 }
 
-// Get returns the Value associated with a given index into a ValueArray.  The
-// argument can be provided either as a Value or as any type that can be
-// converted to a Value.  If the index doesn't appear in the array, a zero
-// value is returned.
-func (va *ValueArray) Get(idx interface{}) *Value {
-	// Convert the index to a Value.
-	vi, ok := idx.(*Value)
-	if !ok {
-		vi = va.script.NewValue(idx)
+// Get returns the Value associated with a given index into a ValueArray.
+// Multiple indexes can be specified to simulate multidimensional arrays.  The
+// arguments can be provided either as Values or as any types that can be
+// converted to Values.  If the index doesn't appear in the array, a zero value
+// is returned.
+func (va *ValueArray) Get(args ...interface{}) *Value {
+	// Ensure we were given at least one index.
+	if len(args) < 1 {
+		panic("ValueArray.Get requires at least one index")
 	}
 
-	// Map using the string version of the index rather than the Value
-	// pointer.  Otherwise, two Values with the same contents would be
-	// treated as different.
-	vv, found := va.data[vi.String()]
+	// Convert each argument to a Value.
+	argVals := make([]*Value, len(args))
+	for i, arg := range args {
+		v, ok := arg.(*Value)
+		if !ok {
+			v = va.script.NewValue(arg)
+		}
+		argVals[i] = v
+	}
+
+	// Handle the most common case: a single index.
+	if len(args) == 1 {
+		vv, found := va.data[argVals[0].String()]
+		if !found {
+			return va.script.NewValue("")
+		}
+		return vv
+	}
+
+	// Merge the indexes into a single string.
+	idxStrs := make([]string, len(argVals))
+	for i, v := range argVals {
+		idxStrs[i] = v.String()
+	}
+	idx := strings.Join(idxStrs, va.script.SubSep)
+
+	// Look up the index in the associative array.
+	vv, found := va.data[idx]
 	if !found {
 		return va.script.NewValue("")
 	}

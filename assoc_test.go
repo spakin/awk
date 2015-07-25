@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// TestIntIntArray tests basic Get/Set operations on an associative array that
+// TestIntIntArray tests Get/Set operations on an associative array that
 // maps integers to integers.
 func TestIntIntArray(t *testing.T) {
 	scr := NewScript()
@@ -22,7 +22,7 @@ func TestIntIntArray(t *testing.T) {
 	}
 }
 
-// TestValueValueArray tests basic Get/Set operations on an
+// TestValueValueArray tests Get/Set operations on an
 // associative array that maps Values to Values.
 func TestValueValueArray(t *testing.T) {
 	scr := NewScript()
@@ -53,6 +53,26 @@ func TestStringStringArray(t *testing.T) {
 		got := a.Get(k).String()
 		if got != want {
 			t.Fatalf("Expected %q but received %q", want, got)
+		}
+	}
+}
+
+// TestMultiDimArray tests basic Get/Set operations on a "multidimensional"
+// associative array.
+func TestMultiDimArray(t *testing.T) {
+	scr := NewScript()
+	a := scr.NewValueArray()
+	for i := 9; i >= 0; i-- {
+		for j := 9; j >= 0; j-- {
+			a.Set(i, j, i*10+j)
+		}
+	}
+	for i := 0; i < 10; i++ {
+		for j := 9; j >= 0; j-- {
+			got := a.Get(i, j).Int()
+			if got != i*10+j {
+				t.Fatalf("Expected %d but received %d", i*10+j, got)
+			}
 		}
 	}
 }

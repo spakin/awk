@@ -18,6 +18,8 @@ func TestReadRecordNewline(t *testing.T) {
 	doTest := func() {
 		scr.input = bufio.NewReader(strings.NewReader(allRecordsStr))
 		scr.SetRS("\n")
+		scr.rsScanner = bufio.NewScanner(scr.input)
+		scr.rsScanner.Split(scr.makeRecordSplitter())
 		for _, oneRecord := range allRecords {
 			rec, err := scr.readRecord()
 			if err != nil {
@@ -43,6 +45,8 @@ func TestReadRecordWhitespace(t *testing.T) {
 	scr := NewScript()
 	scr.input = bufio.NewReader(strings.NewReader(allRecordsStr))
 	scr.SetRS(" ")
+	scr.rsScanner = bufio.NewScanner(scr.input)
+	scr.rsScanner.Split(scr.makeRecordSplitter())
 	for i := 0; i < 10; i++ {
 		rec, err := scr.readRecord()
 		if err != nil {
@@ -60,6 +64,8 @@ func TestReadRecordRE(t *testing.T) {
 	scr := NewScript()
 	scr.input = bufio.NewReader(strings.NewReader(allRecordsStr))
 	scr.SetRS(`<[^>]+>[^<]*<[^>]+>`)
+	scr.rsScanner = bufio.NewScanner(scr.input)
+	scr.rsScanner.Split(scr.makeRecordSplitter())
 	for i := 0; i < 3; i++ {
 		rec, err := scr.readRecord()
 		if err != nil {
@@ -248,11 +254,11 @@ func TestRecordChangeCase(t *testing.T) {
 	scr.AppendStmt(func(s *Script) bool { return s.NR == 3 },
 		func(s *Script) { s.IgnoreCase(true) })
 	scr.SetRS("EOL")
-	err := scr.Run(strings.NewReader("1EOL2EOL3EOL4eol5Eol"))
+	err := scr.Run(strings.NewReader("1EOL2EOL3EOL4Eol5eol6eoL"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if sum != 6{
-		t.Fatalf("Expected 6 but received %d", sum)
+	if sum != 12 {
+		t.Fatalf("Expected 12 but received %d", sum)
 	}
 }

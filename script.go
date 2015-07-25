@@ -17,9 +17,10 @@ type parseState int
 
 // The following are the possibilities for a parseState.
 const (
-	atBegin  parseState = iota // Before any records are read
-	inMiddle                   // While records are being read
-	atEnd                      // After all records are read
+	notRunning parseState = iota // Before/after Run was called
+	atBegin                      // Before any records are read
+	inMiddle                     // While records are being read
+	atEnd                        // After all records are read
 )
 
 // A Script contains all the internal state for an AWK-like script.
@@ -37,7 +38,7 @@ type Script struct {
 	regexps   map[string]*regexp.Regexp // Map from a regular-expression string to a compiled regular expression
 	rsScanner *bufio.Scanner            // Scanner associated with RS
 	input     *bufio.Reader             // Script input stream
-	parsing   parseState                // What we're currently parsing
+	state     parseState                // What we're currently parsing
 }
 
 // NewScript initializes a new Script with default values.
@@ -52,19 +53,17 @@ func NewScript() *Script {
 		rules:   make([]statement, 0, 10),
 		fields:  make([]*Value, 0),
 		regexps: make(map[string]*regexp.Regexp, 10),
+		state:   notRunning,
 	}
 }
 
 // SetRS sets the current input record separator (really, a record terminator).
+// In the current implementation, it should not be called from a running script.
 func (s *Script) SetRS(rs string) {
-	// Store the new record terminator.
-	s.rs = rs
-
-	// Create (and store) a new scanner based on the new record terminator.
-	if s.input != nil {
-		s.rsScanner = bufio.NewScanner(s.input)
-		s.rsScanner.Split(s.makeRecordSplitter())
+	if s.state != notRunning {
+		panic("SetRS was called from a running script")
 	}
+	s.rs = rs
 }
 
 // SetFS sets the current input field separator.
@@ -108,10 +107,7 @@ func (s *Script) SetF(i int, v *Value) {
 // IgnoreCase specifies whether regular expressions and string
 // comparisons are performed in a case-insensitive manner.
 func (s *Script) IgnoreCase(ign bool) {
-	if s.ignCase != ign {
-		s.ignCase = ign
-		s.SetRS(s.rs)
-	}
+	s.ignCase = ign
 }
 
 // A PatternFunc represents a pattern to match against.  It is expected to
@@ -134,19 +130,19 @@ type statement struct {
 // The Begin pattern is true at the beginning of a script, before any records
 // have been read.
 func Begin(s *Script) bool {
-	return s.parsing == atBegin
+	return s.state == atBegin
 }
 
 // The matchAny pattern is true in the middle of a script, when a record is
 // available for parsing.
 func matchAny(s *Script) bool {
-	return s.parsing == inMiddle
+	return s.state == inMiddle
 }
 
 // The End pattern is true at the end of a script, after all records have been
 // read.
 func End(s *Script) bool {
-	return s.parsing == atEnd
+	return s.state == atEnd
 }
 
 // The printRecord statement outputs the current record verbatim to the
@@ -157,12 +153,41 @@ func printRecord(s *Script) {
 
 // AppendStmt appends a pattern-action pair to a Script.
 func (s *Script) AppendStmt(p PatternFunc, a ActionFunc) {
+	// Panic if we were called on a running script.
+	if s.state != notRunning {
+		panic("AppendStmt was called from a running script")
+	}
+
+	// Append a statement to the list of rules.
 	stmt := statement{
 		Pattern: p,
 		Action:  a,
 	}
 	if p == nil {
 		stmt.Pattern = matchAny
+	} else {
+		// Go unfortunately doesn't allow function comparisons.  Hence,
+		// we resort to some trickery to determine if we were passed
+		// Begin, End, or neither.  This trick does demand that pattern
+		// execution be idempotent.
+		s.state = atBegin
+		isBegin := p(s)
+		s.state = inMiddle
+		isMiddle := p(s)
+		s.state = atEnd
+		isEnd := p(s)
+		s.state = notRunning
+		switch {
+		case isBegin && !isMiddle && !isEnd:
+		case !isBegin && !isMiddle && isEnd:
+		default:
+			stmt.Pattern = func(s *Script) bool {
+				if s.state == inMiddle {
+					return p(s)
+				}
+				return false
+			}
+		}
 	}
 	if a == nil {
 		stmt.Action = printRecord
@@ -330,18 +355,15 @@ func (s *Script) makeRecordSplitter() func([]byte, bool) (int, []byte, error) {
 	}
 
 	// Terminator is multiple characters: treat it as a regular expression,
-	// and scan based on that.  First, we ensure the terminator character
-	// is valid.
-	termRegexp, err := s.compileRegexp(s.rs)
-	if err != nil {
-		return func(data []byte, atEOF bool) (int, []byte, error) {
+	// and scan based on that.
+	return func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+		// Generate a regular expression based on the current RS and
+		// IgnoreCase.
+		termRegexp, err := s.compileRegexp(s.rs)
+		if err != nil {
 			return 0, nil, err
 		}
-	}
 
-	// The regular expression is valid.  Return a splitter customized to
-	// that regular expression.
-	return func(data []byte, atEOF bool) (advance int, token []byte, err error) {
 		// If we match the regular expression, return everything up to
 		// the match.
 		loc := termRegexp.FindIndex(data)
@@ -414,15 +436,17 @@ func (s *Script) Run(r io.Reader) error {
 	s.ConvFmt = "%.6g"
 	s.NF = 0
 	s.NR = 0
-	s.SetFS(" ")
-	s.SetRS("\n")
+
+	// Create (and store) a new scanner based on the record terminator.
+	s.rsScanner = bufio.NewScanner(s.input)
+	s.rsScanner.Split(s.makeRecordSplitter())
 
 	// Process all Begin actions.
-	s.parsing = atBegin
+	s.state = atBegin
 	walkStatements()
 
 	// Process each record in turn.
-	s.parsing = inMiddle
+	s.state = inMiddle
 	for {
 		// Read a record.
 		rec, err := s.readRecord()
@@ -442,7 +466,8 @@ func (s *Script) Run(r io.Reader) error {
 	}
 
 	// Process all End actions
-	s.parsing = atEnd
+	s.state = atEnd
 	walkStatements()
+	s.state = notRunning
 	return nil
 }

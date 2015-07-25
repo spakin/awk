@@ -5,8 +5,8 @@ package awk
 
 import (
 	"fmt"
-	"regexp"
 	"strconv"
+	"strings"
 	"unicode/utf8"
 )
 
@@ -154,20 +154,24 @@ func (v *Value) String() string {
 
 // Match says whether a given regular expression matches the Value.
 func (v *Value) Match(expr string) bool {
-	// Check if we've previously encountered this regexp.
-	re, ok := v.script.regexps[expr]
-	if !ok {
-		// Compile on first use then remember for later.
-		var err error
-		re, err = regexp.Compile(expr)
-		if err != nil {
-			// Fail silently
-			return false
-		}
-		v.script.regexps[expr] = re
+	// Compile the regular expression.
+	re, err := v.script.compileRegexp(expr)
+	if err != nil {
+		return false // Fail silently
 	}
 
 	// Return true if the expression matches the value, interpreted as a
 	// string.
 	return re.MatchString(v.String())
+}
+
+// StrEqual says whether two Values, treated as strings, have the same
+// contents.  If the associated script set IgnoreCase(true), the
+// comparison is performed in a case-insensitive manner.
+func (v1 *Value) StrEqual(v2 *Value) bool {
+	if v1.script.ignCase {
+		return strings.EqualFold(v1.String(), v2.String())
+	} else {
+		return v1.String() == v2.String()
+	}
 }

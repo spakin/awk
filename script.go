@@ -31,6 +31,7 @@ type Script struct {
 
 	rs        string                    // Input record separator, newline by default
 	fs        string                    // Input field separator, space by default
+	ignCase   bool                      // true: REs are case-insensitive; false: case-sensitive
 	rules     []statement               // List of pattern-action pairs to execute
 	fields    []*Value                  // Fields in the current record; fields[0] is the entire record
 	regexps   map[string]*regexp.Regexp // Map from a regular-expression string to a compiled regular expression
@@ -47,8 +48,9 @@ func NewScript() *Script {
 		NF:      0,
 		rs:      "\n",
 		fs:      " ",
-		fields:  make([]*Value, 0),
+		ignCase: false,
 		rules:   make([]statement, 0, 10),
+		fields:  make([]*Value, 0),
 		regexps: make(map[string]*regexp.Regexp, 10),
 	}
 }
@@ -101,6 +103,15 @@ func (s *Script) SetF(i int, v *Value) {
 
 	// Index not larger than (the possibly modified) NF: write the field.
 	s.fields[i] = v
+}
+
+// IgnoreCase specifies whether regular expressions and string
+// comparisons are performed in a case-insensitive manner.
+func (s *Script) IgnoreCase(ign bool) {
+	if s.ignCase != ign {
+		s.ignCase = ign
+		s.SetRS(s.rs)
+	}
 }
 
 // A PatternFunc represents a pattern to match against.  It is expected to
@@ -159,8 +170,13 @@ func (s *Script) AppendStmt(p PatternFunc, a ActionFunc) {
 	s.rules = append(s.rules, stmt)
 }
 
-// compileRegexp caches and returns the result of regexp.Compile.
+// compileRegexp caches and returns the result of regexp.Compile.  It
+// automatically prepends "(?i)" to the expression if the script is currently
+// set to perform case-insensitive regular-expression matching.
 func (s *Script) compileRegexp(expr string) (*regexp.Regexp, error) {
+	if s.ignCase {
+		expr = "(?i)" + expr
+	}
 	re, found := s.regexps[expr]
 	if found {
 		return re, nil

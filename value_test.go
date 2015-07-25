@@ -142,3 +142,32 @@ func TestMatch(t *testing.T) {
 		}
 	}
 }
+
+// TestStrEqual tests if string comparisons work.
+func TestStrEqual(t *testing.T) {
+	// Test case-sensitive comparisons.
+	scr := NewScript()
+	v := scr.NewValue("good")
+	for _, bad := range []string{"bad", "goody", "Good", "good "} {
+		if v.StrEqual(scr.NewValue(bad)) {
+			t.Fatalf("Incorrectly matched %q = %q", "good", bad)
+		}
+	}
+	if !v.StrEqual(scr.NewValue("good")) {
+		t.Fatalf("Failed to match %q", "good")
+	}
+
+	// Test case-insensitive comparisons.
+	scr.IgnoreCase(true)
+	for _, bad := range []string{"bad", "goody", "good "} {
+		if v.StrEqual(scr.NewValue(bad)) {
+			t.Fatalf("Incorrectly matched %q = %q", "good", bad)
+		}
+	}
+	if !v.StrEqual(scr.NewValue("good")) {
+		t.Fatalf("Failed to match %q", "good")
+	}
+	if !v.StrEqual(scr.NewValue("GooD")) {
+		t.Fatalf("Failed to match %q = %q", "good", "GooD")
+	}
+}

@@ -124,6 +124,33 @@ func TestSplitFieldRE(t *testing.T) {
 	}
 }
 
+// TestSplitFieldREIgnCase tests splitting a field based on a case-insensitive
+// regular expression.
+func TestSplitFieldREIgnCase(t *testing.T) {
+	// Determine what we want to provide and see in return.
+	recordStr := "fooxbarXxxbazxxXXxxxXxxXxquucksxXcorgexgraultxxxgarplyx"
+	re, err := regexp.Compile(`[fobarzqucksgeltpy]+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	words := re.FindAllString(recordStr, -1)
+	words = append(words, "")
+
+	// Split the record.
+	scr := NewScript()
+	scr.SetFS("x+")
+	scr.IgnoreCase(true)
+	scr.splitRecord(recordStr)
+
+	// Check the result.
+	for i := 1; i <= scr.NF; i++ {
+		f := scr.F(i).String()
+		if f != words[i-1] {
+			t.Fatalf("Expected %q for field %d but received %q", words[i-1], i, f)
+		}
+	}
+}
+
 // TestBeginEnd tests creating and running a script that contains a Begin
 // action and an End action.
 func TestBeginEnd(t *testing.T) {
@@ -208,5 +235,24 @@ func TestRecordReplacement(t *testing.T) {
 	}
 	if sum != 206 {
 		t.Fatalf("Expected 206 but received %d", sum)
+	}
+}
+
+// TestRecordChangeCase tests changing IgnoreCase during the execution of a
+// script.
+func TestRecordChangeCase(t *testing.T) {
+	scr := NewScript()
+	sum := 0
+	scr.AppendStmt(func(s *Script) bool { return s.F(1).Int()%2 == 0 },
+		func(s *Script) { sum += s.F(1).Int() })
+	scr.AppendStmt(func(s *Script) bool { return s.NR == 3 },
+		func(s *Script) { s.IgnoreCase(true) })
+	scr.SetRS("EOL")
+	err := scr.Run(strings.NewReader("1EOL2EOL3EOL4eol5Eol"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sum != 6{
+		t.Fatalf("Expected 6 but received %d", sum)
 	}
 }

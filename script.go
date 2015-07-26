@@ -178,6 +178,22 @@ func (s *Script) Exit() {
 	}
 }
 
+// Range combines two patterns into a single pattern that statefully returns
+// true between the time the first and second pattern become true (both
+// inclusively).
+func Range(p1, p2 PatternFunc) PatternFunc {
+	inRange := false
+	return func(s *Script) bool {
+		if inRange {
+			inRange = !p2(s)
+			return true
+		} else {
+			inRange = p1(s)
+			return inRange
+		}
+	}
+}
+
 // AppendStmt appends a pattern-action pair to a Script.
 func (s *Script) AppendStmt(p PatternFunc, a ActionFunc) {
 	// Panic if we were called on a running script.

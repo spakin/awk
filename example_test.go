@@ -102,3 +102,11 @@ func Example_14() {
 		}
 	})
 }
+
+// Write all lines between occurrences of the strings start and stop (AWK:
+// /start/, /stop/).
+func Example_15() {
+	s.AppendStmt(awk.Range(func(s *awk.Script) bool { return s.F(1).Match("start") },
+		func(s *awk.Script) bool { return s.F(1).Match("stop") }),
+		nil)
+}

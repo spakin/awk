@@ -306,3 +306,40 @@ func TestExit(t *testing.T) {
 		t.Fatalf("Expected 1110 but received %d", sum)
 	}
 }
+
+// TestRecordRange tests range patterns.
+func TestRecordRange(t *testing.T) {
+	scr := NewScript()
+	all := []string{
+		"bad",
+		"terrible",
+		"BEGIN",
+		"good",
+		"great",
+		"fantastic",
+		"END",
+		"awful",
+		"dreadful",
+	}
+	want := []string{
+		"BEGIN",
+		"good",
+		"great",
+		"fantastic",
+		"END",
+	}
+	got := make([]string, 0, 10)
+	scr.AppendStmt(Range(func(s *Script) bool { return s.F(1).Match("BEGIN") },
+		func(s *Script) bool { return s.F(1).Match("END") }),
+		func(s *Script) { got = append(got, s.F(1).String()) })
+	err := scr.Run(strings.NewReader(strings.Join(all, "\n")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, s1 := range want {
+		s2 := got[i]
+		if s1 != s2 {
+			t.Fatalf("Expected %q but received %q", s1, s2)
+		}
+	}
+}

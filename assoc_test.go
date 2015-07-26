@@ -108,3 +108,33 @@ func TestArrayValues(t *testing.T) {
 		t.Fatalf("Expected 1100 but received %d", vsum)
 	}
 }
+
+// TestArrayDelete tests deleting an element from an associative array.
+func TestArrayDelete(t *testing.T) {
+	// Create an array of values, then delete every other element.
+	scr := NewScript()
+	a := scr.NewValueArray()
+	for i := 0; i <= 100; i++ {
+		a.Set(i, i/2)
+	}
+	for i := 1; i <= 100; i += 2 {
+		a.Delete(i)
+	}
+	vsum := 0
+	for i := 0; i <= 100; i++ {
+		vsum += a.Get(i).Int()
+	}
+	if vsum != 1275 {
+		t.Fatalf("Expected 1275 but received %d", vsum)
+	}
+
+	// Empty the array and try again.
+	a.Delete()
+	vsum = 0
+	for i := 0; i <= 100; i++ {
+		vsum += a.Get(i).Int()
+	}
+	if vsum != 0 {
+		t.Fatalf("Expected 0 but received %d", vsum)
+	}
+}

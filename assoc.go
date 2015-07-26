@@ -102,6 +102,44 @@ func (va *ValueArray) Get(args ...interface{}) *Value {
 	return vv
 }
 
+// Delete deletes a key and associated value from a ValueArray.  Multiple
+// indexes can be specified to simulate multidimensional arrays.  The arguments
+// can be provided either as Values or as any types that can be converted to
+// Values.  If no argument is provided, the entire ValueArray is emptied.
+func (va *ValueArray) Delete(args ...interface{}) {
+	// If we were given no arguments, delete the entire array.
+	if args == nil {
+		va.data = make(map[string]*Value)
+		return
+	}
+
+	// Convert each argument to a Value.
+	argVals := make([]*Value, len(args))
+	for i, arg := range args {
+		v, ok := arg.(*Value)
+		if !ok {
+			v = va.script.NewValue(arg)
+		}
+		argVals[i] = v
+	}
+
+	// Handle the most common case: a single index.
+	if len(args) == 1 {
+		delete(va.data, argVals[0].String())
+		return
+	}
+
+	// Merge the indexes into a single string.
+	idxStrs := make([]string, len(argVals))
+	for i, v := range argVals {
+		idxStrs[i] = v.String()
+	}
+	idx := strings.Join(idxStrs, va.script.SubSep)
+
+	// Delete the index from the associative array.
+	delete(va.data, idx)
+}
+
 // Keys returns all keys in the associative array in undefined order.
 func (va *ValueArray) Keys() []*Value {
 	keys := make([]*Value, 0, len(va.data))

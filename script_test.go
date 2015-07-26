@@ -289,3 +289,20 @@ func TestRecordBlankLines(t *testing.T) {
 		}
 	}
 }
+
+// TestExit tests premature script termination.
+func TestExit(t *testing.T) {
+	scr := NewScript()
+	sum := 0
+	scr.AppendStmt(Begin, func(s *Script) { s.IgnoreCase(true) })
+	scr.AppendStmt(nil, func(s *Script) { sum += s.F(1).Int() })
+	scr.AppendStmt(func(s *Script) bool { return s.F(1).StrEqual("stop") },
+		func(s *Script) { s.Exit() })
+	err := scr.Run(strings.NewReader("111\n222\n333\n444\nSTOP\n555\n666\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sum != 1110 {
+		t.Fatalf("Expected 1110 but received %d", sum)
+	}
+}

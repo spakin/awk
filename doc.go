@@ -105,6 +105,9 @@ and null strings (implying single-character fields)
 
 • multi-dimensional associative arrays
 
+* support for premature termination of record processing (next) and script
+processing (exit)
+
 A number of examples ported from the POSIX 1003.1 standard document
 (http://pubs.opengroup.org/onlinepubs/9699919799/utilities/awk.html) are
 presented below.

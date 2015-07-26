@@ -104,6 +104,7 @@ func (s *Script) NewValue(v interface{}) *Value {
 // Int converts a Value to an int.
 func (v *Value) Int() int {
 	switch {
+	case v.ival_ok:
 	case v.fval_ok:
 		v.ival = int(v.fval)
 		v.ival_ok = true
@@ -133,6 +134,7 @@ func (v *Value) Int() int {
 // Float64 converts a Value to a float64.
 func (v *Value) Float64() float64 {
 	switch {
+	case v.fval_ok:
 	case v.ival_ok:
 		v.fval = float64(v.ival)
 		v.fval_ok = true
@@ -146,6 +148,7 @@ func (v *Value) Float64() float64 {
 // String converts a Value to a string.
 func (v *Value) String() string {
 	switch {
+	case v.sval_ok:
 	case v.ival_ok:
 		v.sval = strconv.FormatInt(int64(v.ival), 10)
 		v.sval_ok = true
@@ -169,13 +172,30 @@ func (v *Value) Match(expr string) bool {
 	return re.MatchString(v.String())
 }
 
-// StrEqual says whether two Values, treated as strings, have the same
-// contents.  If the associated script set IgnoreCase(true), the
-// comparison is performed in a case-insensitive manner.
-func (v1 *Value) StrEqual(v2 *Value) bool {
-	if v1.script.ignCase {
-		return strings.EqualFold(v1.String(), v2.String())
-	} else {
-		return v1.String() == v2.String()
+// StrEqual says whether a Value, treated as a string, has the same contents as
+// a given Value, which can be provided either as a Value or as any type that
+// can be converted to a Value.  If the associated script set IgnoreCase(true),
+// the comparison is performed in a case-insensitive manner.
+func (v1 *Value) StrEqual(v2 interface{}) bool {
+	switch v2 := v2.(type) {
+	case *Value:
+		if v1.script.ignCase {
+			return strings.EqualFold(v1.String(), v2.String())
+		} else {
+			return v1.String() == v2.String()
+		}
+	case string:
+		if v1.script.ignCase {
+			return strings.EqualFold(v1.String(), v2)
+		} else {
+			return v1.String() == v2
+		}
+	default:
+		v2Val := v1.script.NewValue(v2)
+		if v1.script.ignCase {
+			return strings.EqualFold(v1.String(), v2Val.String())
+		} else {
+			return v1.String() == v2Val.String()
+		}
 	}
 }

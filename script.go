@@ -23,6 +23,16 @@ const (
 	atEnd                        // After all records are read
 )
 
+// A stopState describes premature stop conditions.
+type stopState int
+
+// The following are possibilities for a stopState.
+const (
+	dontStop   stopState = iota // Normal execution
+	stopRec                     // Abort the current record
+	stopScript                  // Abort the entire script
+)
+
 // A Script contains all the internal state for an AWK-like script.
 type Script struct {
 	State   interface{} // Arbitrary, user-supplied data
@@ -40,6 +50,7 @@ type Script struct {
 	rsScanner *bufio.Scanner            // Scanner associated with RS
 	input     *bufio.Reader             // Script input stream
 	state     parseState                // What we're currently parsing
+	stop      stopState                 // What we should stop doing
 }
 
 // NewScript initializes a new Script with default values.
@@ -151,6 +162,20 @@ func End(s *Script) bool {
 // standard output device.
 func printRecord(s *Script) {
 	fmt.Printf("%v\n", s.fields[0])
+}
+
+// Next stops processing the current record and proceeds with the next record.
+func (s *Script) Next() {
+	if s.stop == dontStop {
+		s.stop = stopRec
+	}
+}
+
+// Exit stops processing the entire script, causing the Run method to return.
+func (s *Script) Exit() {
+	if s.stop == dontStop {
+		s.stop = stopScript
+	}
 }
 
 // AppendStmt appends a pattern-action pair to a Script.
@@ -436,6 +461,9 @@ func (s *Script) Run(r io.Reader) error {
 		for _, rule := range s.rules {
 			if rule.Pattern(s) {
 				rule.Action(s)
+				if s.stop != dontStop {
+					return
+				}
 			}
 		}
 	}
@@ -459,11 +487,15 @@ func (s *Script) Run(r io.Reader) error {
 	// Process all Begin actions.
 	s.state = atBegin
 	walkStatements()
+	if s.stop == stopScript {
+		return nil
+	}
 
 	// Process each record in turn.
 	s.state = inMiddle
 	for {
 		// Read a record.
+		s.stop = dontStop
 		rec, err := s.readRecord()
 		if err != nil {
 			if err == io.EOF {
@@ -478,6 +510,9 @@ func (s *Script) Run(r io.Reader) error {
 
 		// Process all applicable actions.
 		walkStatements()
+		if s.stop == stopScript {
+			return nil
+		}
 	}
 
 	// Process all End actions

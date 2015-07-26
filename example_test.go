@@ -110,3 +110,14 @@ func Example_15() {
 		func(s *awk.Script) bool { return s.F(1).Match("stop") }),
 		nil)
 }
+
+// Write all lines whose first field is different from the previous line's
+// first field (AWK: $1 != prev {print; prev = $1}).
+func Example_16() {
+	prev := s.NewValue("")
+	s.AppendStmt(func(s *awk.Script) bool { return !s.F(1).StrEqual(prev) },
+		func(s *awk.Script) {
+			fmt.Println(s.F(0))
+			prev = s.F(1)
+		})
+}

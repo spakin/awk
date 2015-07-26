@@ -260,19 +260,20 @@ func (s *Script) compileRegexp(expr string) (*regexp.Regexp, error) {
 
 // makeFieldSplitter returns a splitter that returns the next field.
 func (s *Script) makeFieldSplitter() func([]byte, bool) (int, []byte, error) {
-	// Separator is empty: return the next rune.
+	// If the separator is empty, each rune is a separate field.
 	if s.fs == "" {
 		return bufio.ScanRunes
 	}
 
-	// Separator is a single space: return the next word.
+	// If the separator is a single space, return the next word as the
+	// field.
 	if s.fs == " " {
 		return bufio.ScanWords
 	}
 
-	// Separator is a single character, and the record terminator is not
-	// empty (a special case in AWK): split based on that.  This code is
-	// derived from the bufio.ScanWords source.
+	// If the separator is a single character and the record terminator is
+	// not empty (a special case in AWK), split based on that.  This code
+	// is derived from the bufio.ScanWords source.
 	if utf8.RuneCountInString(s.fs) == 1 && s.rs != "" {
 		// Ensure the separator character is valid.
 		firstRune, _ := utf8.DecodeRuneInString(s.fs)
@@ -311,9 +312,9 @@ func (s *Script) makeFieldSplitter() func([]byte, bool) (int, []byte, error) {
 		}
 	}
 
-	// Separator is multiple characters (or record terminator is empty):
-	// treat it as a regular expression, and scan based on that.  First, we
-	// ensure the separator character is valid.
+	// If the separator is multiple characters (or the record terminator is
+	// empty), treat it as a regular expression, and scan based on that.
+	// First, we ensure the separator character is valid.
 	var sepRegexp *regexp.Regexp
 	var err error
 	if s.rs == "" {
@@ -360,13 +361,8 @@ func (s *Script) makeFieldSplitter() func([]byte, bool) (int, []byte, error) {
 // separator, as far as I can tell, AWK in fact treats it as a record
 // *terminator* so we do, too.
 func (s *Script) makeRecordSplitter() func([]byte, bool) (int, []byte, error) {
-	// Terminator is a single space: return the next word.
-	if s.rs == " " {
-		return bufio.ScanWords
-	}
-
-	// Terminator is a single character: scan based on that.  This code is
-	// derived from the bufio.ScanWords source.
+	// If the terminator is a single character, scan based on that.  This
+	// code is derived from the bufio.ScanWords source.
 	if utf8.RuneCountInString(s.rs) == 1 {
 		// Ensure the terminator character is valid.
 		firstRune, _ := utf8.DecodeRuneInString(s.rs)
@@ -403,10 +399,10 @@ func (s *Script) makeRecordSplitter() func([]byte, bool) (int, []byte, error) {
 		}
 	}
 
-	// Terminator is multiple characters: treat it as a regular expression,
-	// and scan based on that.  As a special case, if the terminator is
-	// empty, we treat it as a regular expression representing one or more
-	// blank lines.
+	// If the terminator is multiple characters, treat it as a regular
+	// expression, and scan based on that.  Or, as a special case, if the
+	// terminator is empty, we treat it as a regular expression
+	// representing one or more blank lines.
 	return func(data []byte, atEOF bool) (advance int, token []byte, err error) {
 		// Generate a regular expression based on the current RS and
 		// IgnoreCase.

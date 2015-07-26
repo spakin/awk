@@ -169,7 +169,15 @@ func (v *Value) Match(expr string) bool {
 
 	// Return true if the expression matches the value, interpreted as a
 	// string.
-	return re.MatchString(v.String())
+	loc := re.FindStringIndex(v.String())
+	if loc == nil {
+		v.script.RStart = 0
+		v.script.RLength = -1
+		return false
+	}
+	v.script.RStart = loc[0] + 1
+	v.script.RLength = loc[1] - loc[0]
+	return true
 }
 
 // StrEqual says whether a Value, treated as a string, has the same contents as

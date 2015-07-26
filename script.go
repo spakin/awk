@@ -41,6 +41,8 @@ type Script struct {
 	NR      int         // Number of input records seen so far
 	NF      int         // Number of fields in the current input record
 	RT      string      // Actual string terminating the current record
+	RStart  int         // 1-based index of the previous regexp match (Value.Match)
+	RLength int         // Length of the previous regexp match (Value.Match)
 
 	rs        string                    // Input record separator, newline by default
 	fs        string                    // Input field separator, space by default

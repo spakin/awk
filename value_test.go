@@ -128,7 +128,7 @@ func TestStringToString(t *testing.T) {
 
 // TestMatch tests if regular-expression matching works.
 func TestMatch(t *testing.T) {
-	// We run the test twice to see if regexp caching works.
+	// We run the test twice to confirm that regexp caching works.
 	scr := NewScript()
 	v := scr.NewValue("Mississippi")
 	in := []string{"p*", "[is]+", "Miss", "hippie", "ippi"}
@@ -140,6 +140,20 @@ func TestMatch(t *testing.T) {
 				t.Fatalf("Expected %v but received %v\n", out[idx], m)
 			}
 		}
+	}
+
+	// Test if RStart and RLength are maintained properly.
+	if !v.Match("[is]+") {
+		t.Fatalf("Failed to match %v against %q", v, "[is]+")
+	}
+	if scr.RStart != 2 || scr.RLength != 7 {
+		t.Fatalf("Expected {2, 7} but received {%d, %d}", scr.RStart, scr.RLength)
+	}
+	if v.Match("[xy]+") {
+		t.Fatalf("Incorrectly matched %v against %q", v, "[xy]+")
+	}
+	if scr.RStart != 0 || scr.RLength != -1 {
+		t.Fatalf("Expected {0, -1} but received {%d, %d}", scr.RStart, scr.RLength)
 	}
 }
 

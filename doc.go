@@ -72,7 +72,7 @@ awk package, the preceding code reduces to the following:
 	    s.Run(os.Stdin)
     }
 
-While not a one-liner line the original AWK program, the above is conceptually
+While not a one-liner like the original AWK program, the above is conceptually
 close to it.  The AppendStmt method defines a script in terms of patterns and
 actions, just like the AWK program.  The Run method then runs the script on an
 input stream, which can be any io.Reader.
@@ -105,8 +105,11 @@ and null strings (implying single-character fields)
 
 • multi-dimensional associative arrays
 
-* support for premature termination of record processing (next) and script
+• support for premature termination of record processing (next) and script
 processing (exit)
+
+• maintenance of regular-expression status variables (RT, RSTART, and RLENGTH)
+
 
 A number of examples ported from the POSIX 1003.1 standard document
 (http://pubs.opengroup.org/onlinepubs/9699919799/utilities/awk.html) are

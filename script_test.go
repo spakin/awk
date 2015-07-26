@@ -358,3 +358,18 @@ func TestRecordRange(t *testing.T) {
 		}
 	}
 }
+
+// TestSplitRecordRE tests splitting record into regexp-separated fields.
+func TestSplitRecordRE(t *testing.T) {
+	scr := NewScript()
+	pluses := 0
+	scr.AppendStmt(Begin, func(s *Script) { s.SetRS(`\++`) })
+	scr.AppendStmt(nil, func(s *Script) { pluses += len(s.RT) })
+	err := scr.Run(strings.NewReader("a++++++a++a++++a+++a+++++a+"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pluses != 21 {
+		t.Fatalf("Expected 21 but received %d", pluses)
+	}
+}

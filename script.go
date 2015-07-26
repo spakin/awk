@@ -40,6 +40,7 @@ type Script struct {
 	SubSep  string      // Separator for simulated multidimensional arrays
 	NR      int         // Number of input records seen so far
 	NF      int         // Number of fields in the current input record
+	RT      string      // Actual string terminating the current record
 
 	rs        string                    // Input record separator, newline by default
 	fs        string                    // Input field separator, space by default
@@ -73,7 +74,7 @@ func NewScript() *Script {
 // SetRS sets the current input record separator (really, a record terminator).
 // In the current implementation, it should not be called from a running script.
 func (s *Script) SetRS(rs string) {
-	if s.state != notRunning {
+	if s.state == inMiddle {
 		panic("SetRS was called from a running script")
 	}
 	s.rs = rs
@@ -376,6 +377,7 @@ func (s *Script) makeRecordSplitter() func([]byte, bool) (int, []byte, error) {
 		// that terminator.
 		return func(data []byte, atEOF bool) (advance int, token []byte, err error) {
 			// Scan until we see a terminator or run out of data.
+			s.RT = string(firstRune)
 			for width, i := 0, 0; i < len(data); i += width {
 				var r rune
 				r, width = utf8.DecodeRune(data[i:])
@@ -420,12 +422,14 @@ func (s *Script) makeRecordSplitter() func([]byte, bool) (int, []byte, error) {
 		// the match.
 		loc := termRegexp.FindIndex(data)
 		if loc != nil {
+			s.RT = string(data[loc[0]:loc[1]])
 			return loc[1], data[:loc[0]], nil
 		}
 
 		// We didn't see a terminator.  If we're at EOF, we have a
 		// final, non-terminated token.  Return it if it's nonempty.
 		if atEOF && len(data) > 0 {
+			s.RT = ""
 			return len(data), data, nil
 		}
 
@@ -492,16 +496,16 @@ func (s *Script) Run(r io.Reader) error {
 	s.NF = 0
 	s.NR = 0
 
-	// Create (and store) a new scanner based on the record terminator.
-	s.rsScanner = bufio.NewScanner(s.input)
-	s.rsScanner.Split(s.makeRecordSplitter())
-
 	// Process all Begin actions.
 	s.state = atBegin
 	walkStatements()
 	if s.stop == stopScript {
 		return nil
 	}
+
+	// Create (and store) a new scanner based on the record terminator.
+	s.rsScanner = bufio.NewScanner(s.input)
+	s.rsScanner.Split(s.makeRecordSplitter())
 
 	// Process each record in turn.
 	s.state = inMiddle

@@ -159,7 +159,9 @@ func (v *Value) String() string {
 	return v.sval
 }
 
-// Match says whether a given regular expression matches the Value.
+// Match says whether a given regular expression matches the Value.  If the
+// associated script set IgnoreCase(true), the match is tested in a
+// case-insensitive manner.
 func (v *Value) Match(expr string) bool {
 	// Compile the regular expression.
 	re, err := v.script.compileRegexp(expr)

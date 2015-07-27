@@ -13,7 +13,7 @@ lines in which the fifth column is an odd number:
 
     $5 % 2 == 1
 
-Here's the Go equivalent of that one-line AWK program:
+Here's a typical Go analogue of that one-line AWK program:
 
     package main
 
@@ -56,8 +56,8 @@ Here's the Go equivalent of that one-line AWK program:
     }
 
 The goal of the awk package is to emulate AWK's simplicity while simultaneously
-taking advantage of sacrificing Go's speed, safety, and flexibility.  With the
-awk package, the preceding code reduces to the following:
+taking advantage of Go's speed, safety, and flexibility.  With the awk package,
+the preceding code reduces to the following:
 
     package main
 
@@ -74,8 +74,8 @@ awk package, the preceding code reduces to the following:
 
 While not a one-liner like the original AWK program, the above is conceptually
 close to it.  The AppendStmt method defines a script in terms of patterns and
-actions, just like the AWK program.  The Run method then runs the script on an
-input stream, which can be any io.Reader.
+actions exactly as in the AWK program.  The Run method then runs the script on
+an input stream, which can be any io.Reader.
 
 The awk package can be considered a shallow EDSL (embedded domain-specific
 language) for Go that facilitates text processing.  The package handles the

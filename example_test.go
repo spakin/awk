@@ -5,6 +5,7 @@ package awk_test
 import (
 	"fmt"
 	"github.com/spakin/awk"
+	"os"
 )
 
 var s *awk.Script
@@ -120,4 +121,82 @@ func Example_16() {
 			fmt.Println(s.F(0))
 			prev = s.F(1)
 		})
+}
+
+// For all rows of the form "Total: <number>", accumulate <number>.  Once all
+// rows have been read, output the grand total.
+func ExampleScript_AppendStmt() {
+	grandTotal := 0.0
+	s := awk.NewScript()
+	s.AppendStmt(func(s *awk.Script) bool { return s.NF == 2 && s.F(1).StrEqual("Total:") },
+		func(s *awk.Script) { grandTotal += s.F(2).Float64() })
+	s.AppendStmt(awk.End, func(s *awk.Script) { fmt.Printf("The grand total is %.2f\n", grandTotal) })
+	s.Run(os.Stdin)
+}
+
+// Output each line preceded by its line number.
+func ExampleScript_AppendStmt_nilPattern() {
+	s := awk.NewScript()
+	s.AppendStmt(nil, func(s *awk.Script) { fmt.Printf("%4d %v\n", s.NR, s.F(0)) })
+	s.Run(os.Stdin)
+}
+
+// Output only rows in which the first column contains a larger number than the
+// second column.
+func ExampleScript_AppendStmt_nilAction() {
+	s := awk.NewScript()
+	s.AppendStmt(func(s *awk.Script) bool { return s.F(1).Int() > s.F(2).Int() }, nil)
+	s.Run(os.Stdin)
+}
+
+// Output all input lines that appear between "BEGIN" and "END" inclusive.
+func ExampleRange() {
+	s := awk.NewScript()
+	s.AppendStmt(awk.Range(func(s *awk.Script) bool { return s.F(1).StrEqual("BEGIN") },
+		func(s *awk.Script) bool { return s.F(1).StrEqual("END") }),
+		nil)
+	s.Run(os.Stdin)
+}
+
+// Extract the first column of the input into a slice of strings.
+func ExampleBegin() {
+	var data []string
+	s := awk.NewScript()
+	s.AppendStmt(awk.Begin, func(s *awk.Script) {
+		s.SetFS(",")
+		data = make([]string, 0)
+	})
+	s.AppendStmt(nil, func(s *awk.Script) { data = append(data, s.F(1).String()) })
+	s.Run(os.Stdin)
+}
+
+// Output each line with its columns in reverse order.
+func ExampleScript_F() {
+	s := awk.NewScript()
+	s.AppendStmt(nil, func(s *awk.Script) {
+		for i := s.NF; i > 0; i-- {
+			if i > 1 {
+				fmt.Printf("%v ", s.F(i))
+			} else {
+				fmt.Printf("%v\n", s.F(i))
+			}
+		}
+	})
+	s.Run(os.Stdin)
+}
+
+// Allocate and populate a 2-D array.  The diagonal is made up of strings while
+// the rest of the array consists of float64 values.
+func ExampleValueArray_Set() {
+	va := s.NewValueArray()
+	diag := []string{"Dasher", "Dancer", "Prancer", "Vixen", "Comet", "Cupid", "Dunder", "Blixem"}
+	for i := 0; i < 8; i++ {
+		for j := 0; j < 8; j++ {
+			if i == j {
+				va.Set(i, j, diag[i])
+			} else {
+				va.Set(i, j, float64(i*8+j)/63.0)
+			}
+		}
+	}
 }

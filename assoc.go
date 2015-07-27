@@ -21,9 +21,11 @@ func (s *Script) NewValueArray() *ValueArray {
 }
 
 // Set(index, value) assigns a Value to an index of a ValueArray.  Multiple
-// indexes can be specified to simulate multidimensional arrays.  The final
-// argument is always the value to assign.  Arguments can be provided either as
-// Values or as any types that can be converted to Values.
+// indexes can be specified to simulate multidimensional arrays.  (In fact, the
+// indexes are concatenated into a single string with intervening Script.SubSep
+// characters.)  The final argument is always the value to assign.  Arguments
+// can be provided either as Values or as any types that can be converted to
+// Values.
 func (va *ValueArray) Set(args ...interface{}) {
 	// Ensure we were given at least one index and a value.
 	if len(args) < 2 {
@@ -58,10 +60,11 @@ func (va *ValueArray) Set(args ...interface{}) {
 }
 
 // Get returns the Value associated with a given index into a ValueArray.
-// Multiple indexes can be specified to simulate multidimensional arrays.  The
-// arguments can be provided either as Values or as any types that can be
-// converted to Values.  If the index doesn't appear in the array, a zero value
-// is returned.
+// Multiple indexes can be specified to simulate multidimensional arrays.  (In
+// fact, the indexes are concatenated into a single string with intervening
+// Script.SubSep characters.)  The arguments can be provided either as Values
+// or as any types that can be converted to Values.  If the index doesn't
+// appear in the array, a zero value is returned.
 func (va *ValueArray) Get(args ...interface{}) *Value {
 	// Ensure we were given at least one index.
 	if len(args) < 1 {
@@ -103,9 +106,11 @@ func (va *ValueArray) Get(args ...interface{}) *Value {
 }
 
 // Delete deletes a key and associated value from a ValueArray.  Multiple
-// indexes can be specified to simulate multidimensional arrays.  The arguments
-// can be provided either as Values or as any types that can be converted to
-// Values.  If no argument is provided, the entire ValueArray is emptied.
+// indexes can be specified to simulate multidimensional arrays.  (In fact, the
+// indexes are concatenated into a single string with intervening Script.SubSep
+// characters.)  The arguments can be provided either as Values or as any types
+// that can be converted to Values.  If no argument is provided, the entire
+// ValueArray is emptied.
 func (va *ValueArray) Delete(args ...interface{}) {
 	// If we were given no arguments, delete the entire array.
 	if args == nil {

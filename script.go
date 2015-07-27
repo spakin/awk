@@ -74,7 +74,15 @@ func NewScript() *Script {
 }
 
 // SetRS sets the current input record separator (really, a record terminator).
-// In the current implementation, it should not be called from a running script.
+// In the current implementation, it will panic if called after the first
+// record is read.  (It is acceptable to call SetRS from a Begin action,
+// though.)  As in AWK, if the record separator is a single character, that
+// character is used to separate records; if the record separator is multiple
+// characters, it's treated as a regular expression (subject to the current
+// setting of Script.IgnoreCase); and if the record separator is an empty
+// string, records are separated by blank lines.  That last case implicitly
+// causes newlines to be accepted as a field separator in addition to whatever
+// was specified by SetFS.
 func (s *Script) SetRS(rs string) {
 	if s.state == inMiddle {
 		panic("SetRS was called from a running script")
@@ -82,7 +90,13 @@ func (s *Script) SetRS(rs string) {
 	s.rs = rs
 }
 
-// SetFS sets the current input field separator.
+// SetFS sets the current input field separator.  As in AWK, if the field
+// separator is a single space (the default), fields are separated by runs of
+// whitespace; if the field separator is any other single character, that
+// character is used to separate fields; if the field separator is an empty
+// string, each individual character becomes a separate field; and if the field
+// separator is multiple characters, it's treated as a regular expression
+// (subject to the current setting of Script.IgnoreCase).
 func (s *Script) SetFS(fs string) { s.fs = fs }
 
 // F returns a specified field of the current record.  Field numbers are
@@ -120,21 +134,20 @@ func (s *Script) SetF(i int, v *Value) {
 	s.fields[i] = v
 }
 
-// IgnoreCase specifies whether regular expressions and string
-// comparisons are performed in a case-insensitive manner.
+// IgnoreCase specifies whether regular-expression and string comparisons
+// should be performed in a case-insensitive manner.
 func (s *Script) IgnoreCase(ign bool) {
 	s.ignCase = ign
 }
 
 // A PatternFunc represents a pattern to match against.  It is expected to
-// examine the state in the given Script then return either true or false.  If
+// examine the state of the given Script then return either true or false.  If
 // it returns true, the corresponding ActionFunc is executed.  Otherwise, the
 // corresponding ActionFunc is not executed.
 type PatternFunc func(*Script) bool
 
 // An ActionFunc represents an action to perform when the corresponding
-// PatternFunc returns true.  It can be arbitrary Go code, such as to write
-// output to a file.
+// PatternFunc returns true.
 type ActionFunc func(*Script)
 
 // A statement represents a single pattern-action pair.
@@ -143,20 +156,20 @@ type statement struct {
 	Action  ActionFunc
 }
 
-// The Begin pattern is true at the beginning of a script, before any records
-// have been read.
+// The Begin pattern is true only at the beginning of a script, before any
+// records have been read.
 func Begin(s *Script) bool {
 	return s.state == atBegin
 }
 
-// The matchAny pattern is true in the middle of a script, when a record is
-// available for parsing.
+// The matchAny pattern is true only in the middle of a script, when a record
+// is available for parsing.
 func matchAny(s *Script) bool {
 	return s.state == inMiddle
 }
 
-// The End pattern is true at the end of a script, after all records have been
-// read.
+// The End pattern is true only at the end of a script, after all records have
+// been read.
 func End(s *Script) bool {
 	return s.state == atEnd
 }
@@ -197,7 +210,12 @@ func Range(p1, p2 PatternFunc) PatternFunc {
 	}
 }
 
-// AppendStmt appends a pattern-action pair to a Script.
+// AppendStmt appends a pattern-action pair to a Script.  If the pattern
+// function is nil, the action will be performed on every record.  If the
+// action function is nil, the record will be output verbatim to the standard
+// output device.  The predefined pattern awk.Begin matches before any records
+// have been read, and the predefined pattern awk.End matches after all records
+// have been read.
 func (s *Script) AppendStmt(p PatternFunc, a ActionFunc) {
 	// Panic if we were called on a running script.
 	if s.state != notRunning {
@@ -471,7 +489,8 @@ func (s *Script) splitRecord(rec string) error {
 	return nil
 }
 
-// Execute a script against a given input stream.
+// Execute a script against a given input stream.  It is perfectly valid to run
+// the same script on multiple input streams.
 func (s *Script) Run(r io.Reader) error {
 	// Define a helper function that makes a pass through all user-defined
 	// statements.

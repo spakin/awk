@@ -38,6 +38,11 @@ go get github.com/spakin/awk
 ```
 command.
 
+Documentation
+-------------
+
+Descriptions and examples of the `awk` API can be found online in the [GoDoc documentation of package `awk`](https://godoc.org/github.com/spakin/awk).
+
 Author
 ------
 

@@ -46,6 +46,8 @@ type Script struct {
 
 	rs        string                    // Input record separator, newline by default
 	fs        string                    // Input field separator, space by default
+	ors       string                    // Output record separator, newline by default
+	ofs       string                    // Output field separator, space by default
 	ignCase   bool                      // true: REs are case-insensitive; false: case-sensitive
 	rules     []statement               // List of pattern-action pairs to execute
 	fields    []*Value                  // Fields in the current record; fields[0] is the entire record
@@ -65,6 +67,8 @@ func NewScript() *Script {
 		NF:      0,
 		rs:      "\n",
 		fs:      " ",
+		ors:     "\n",
+		ofs:     " ",
 		ignCase: false,
 		rules:   make([]statement, 0, 10),
 		fields:  make([]*Value, 0),
@@ -73,16 +77,16 @@ func NewScript() *Script {
 	}
 }
 
-// SetRS sets the current input record separator (really, a record terminator).
-// In the current implementation, it will panic if called after the first
-// record is read.  (It is acceptable to call SetRS from a Begin action,
-// though.)  As in AWK, if the record separator is a single character, that
-// character is used to separate records; if the record separator is multiple
-// characters, it's treated as a regular expression (subject to the current
-// setting of Script.IgnoreCase); and if the record separator is an empty
-// string, records are separated by blank lines.  That last case implicitly
-// causes newlines to be accepted as a field separator in addition to whatever
-// was specified by SetFS.
+// SetRS sets the input record separator (really, a record terminator).  In the
+// current implementation, it will panic if called after the first record is
+// read.  (It is acceptable to call SetRS from a Begin action, though.)  As in
+// AWK, if the record separator is a single character, that character is used
+// to separate records; if the record separator is multiple characters, it's
+// treated as a regular expression (subject to the current setting of
+// Script.IgnoreCase); and if the record separator is an empty string, records
+// are separated by blank lines.  That last case implicitly causes newlines to
+// be accepted as a field separator in addition to whatever was specified by
+// SetFS.
 func (s *Script) SetRS(rs string) {
 	if s.state == inMiddle {
 		panic("SetRS was called from a running script")
@@ -90,14 +94,20 @@ func (s *Script) SetRS(rs string) {
 	s.rs = rs
 }
 
-// SetFS sets the current input field separator.  As in AWK, if the field
-// separator is a single space (the default), fields are separated by runs of
-// whitespace; if the field separator is any other single character, that
-// character is used to separate fields; if the field separator is an empty
-// string, each individual character becomes a separate field; and if the field
-// separator is multiple characters, it's treated as a regular expression
-// (subject to the current setting of Script.IgnoreCase).
+// SetFS sets the input field separator.  As in AWK, if the field separator is
+// a single space (the default), fields are separated by runs of whitespace; if
+// the field separator is any other single character, that character is used to
+// separate fields; if the field separator is an empty string, each individual
+// character becomes a separate field; and if the field separator is multiple
+// characters, it's treated as a regular expression (subject to the current
+// setting of Script.IgnoreCase).
 func (s *Script) SetFS(fs string) { s.fs = fs }
+
+// SetORS sets the output record separator.
+func (s *Script) SetORS(ors string) { s.ors = ors }
+
+// SetOFS sets the output field separator.
+func (s *Script) SetOFS(ofs string) { s.ofs = ofs }
 
 // F returns a specified field of the current record.  Field numbers are
 // 1-based.  Field 0 refers to the entire record.  Requesting a field greater
@@ -138,6 +148,34 @@ func (s *Script) SetF(i int, v *Value) {
 // should be performed in a case-insensitive manner.
 func (s *Script) IgnoreCase(ign bool) {
 	s.ignCase = ign
+}
+
+// Println is like fmt.Println but honors the current output field separator
+// and output record separator.  If called with no arguments, Println outputs
+// all fields in the current record.
+func (s *Script) Println(args ...interface{}) {
+	// No arguments: Output all fields of the current record.
+	if args == nil {
+		for i := 1; i <= s.NF; i++ {
+			fmt.Printf("%v", s.F(i))
+			if i == s.NF {
+				fmt.Printf("%s", s.ors)
+			} else {
+				fmt.Printf("%s", s.ofs)
+			}
+		}
+		return
+	}
+
+	// One or more arguments: Output them.
+	for i, arg := range args {
+		fmt.Printf("%v", arg)
+		if i == len(args)-1 {
+			fmt.Printf("%s", s.ors)
+		} else {
+			fmt.Printf("%s", s.ofs)
+		}
+	}
 }
 
 // A PatternFunc represents a pattern to match against.  It is expected to

@@ -9,19 +9,21 @@ Description
 package main
 
 import (
-	"fmt"
-	"github.com/spakin/awk"
-	"os"
+    "github.com/spakin/awk"
+    "os"
 )
 
 func main() {
-	s := awk.NewScript()
-	s.AppendStmt(awk.Begin, func(s *awk.Script) { s.SetFS(",") })
-	s.AppendStmt(nil, func(s *awk.Script) {
-		a, b := s.F(1).Int(), s.F(2).Int()
-		fmt.Printf("%d,%d,%d\n", a, b, a+b)
-	})
-	s.Run(os.Stdin)
+    s := awk.NewScript()
+    s.AppendStmt(awk.Begin, func(s *awk.Script) {
+        s.SetFS(",")
+        s.SetOFS(",")
+    })
+    s.AppendStmt(nil, func(s *awk.Script) {
+        s.SetF(3, s.NewValue(s.F(1).Int()+s.F(2).Int()))
+        s.Println()
+    })
+    s.Run(os.Stdin)
 }
 ```
 

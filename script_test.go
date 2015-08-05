@@ -4,6 +4,7 @@ package awk
 
 import (
 	"bufio"
+	"bytes"
 	"regexp"
 	"strings"
 	"testing"
@@ -371,5 +372,57 @@ func TestSplitRecordRE(t *testing.T) {
 	}
 	if pluses != 21 {
 		t.Fatalf("Expected 21 but received %d", pluses)
+	}
+}
+
+// TestDefaultAction tests the default printing action.
+func TestDefaultAction(t *testing.T) {
+	// Define a script and some test input.
+	scr := NewScript()
+	scr.Output = new(bytes.Buffer)
+	scr.IgnoreCase(true)
+	scr.AppendStmt(func(s *Script) bool { return s.F(1).StrEqual("Duck") }, nil)
+	inputStr := `Duck 1
+duck 2
+duck 3
+duck 4
+Goose! 5
+Duck 6
+duck 7
+DUCK 8
+duck 9
+Goose!
+`
+
+	// Test with the default record separator.
+	err := scr.Run(strings.NewReader(inputStr))
+	if err != nil {
+		t.Fatal(err)
+	}
+	outputStr := string(scr.Output.(*bytes.Buffer).Bytes())
+	desiredOutputStr := `Duck 1
+duck 2
+duck 3
+duck 4
+Duck 6
+duck 7
+DUCK 8
+duck 9
+`
+	if outputStr != desiredOutputStr {
+		t.Fatalf("Expected %#v but received %#v", desiredOutputStr, outputStr)
+	}
+
+	// Test with a modified record separator.
+	scr.Output.(*bytes.Buffer).Reset()
+	scr.SetORS("|")
+	err = scr.Run(strings.NewReader(inputStr))
+	if err != nil {
+		t.Fatal(err)
+	}
+	outputStr = string(scr.Output.(*bytes.Buffer).Bytes())
+	desiredOutputStr = `Duck 1|duck 2|duck 3|duck 4|Duck 6|duck 7|DUCK 8|duck 9|`
+	if outputStr != desiredOutputStr {
+		t.Fatalf("Expected %#v but received %#v", desiredOutputStr, outputStr)
 	}
 }

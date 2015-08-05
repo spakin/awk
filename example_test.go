@@ -82,8 +82,8 @@ func Example_12() {
 
 // Add up the first column and print the sum and average (AWK:
 //
-//     {s += $1 }
-// END {print "sum is", s, "average is", s/NR}
+//         {s += $1 }
+//     END {print "sum is", s, "average is", s/NR}
 //
 // ).
 func Example_13() {

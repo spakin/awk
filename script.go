@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"regexp"
 	"strings"
 	"unicode/utf8"
@@ -36,6 +37,7 @@ const (
 // A Script contains all the internal state for an AWK-like script.
 type Script struct {
 	State   interface{} // Arbitrary, user-supplied data
+	Output  io.Writer   // Output stream (defaults to os.Stdout)
 	ConvFmt string      // Conversion format for numbers, "%.6g" by default
 	SubSep  string      // Separator for simulated multidimensional arrays
 	NR      int         // Number of input records seen so far
@@ -61,6 +63,7 @@ type Script struct {
 // NewScript initializes a new Script with default values.
 func NewScript() *Script {
 	return &Script{
+		Output:  os.Stdout,
 		ConvFmt: "%.6g",
 		SubSep:  "\034",
 		NR:      0,
@@ -150,18 +153,18 @@ func (s *Script) IgnoreCase(ign bool) {
 	s.ignCase = ign
 }
 
-// Println is like fmt.Println but honors the current output field separator
-// and output record separator.  If called with no arguments, Println outputs
-// all fields in the current record.
+// Println is like fmt.Println but honors the current output stream, output
+// field separator, and output record separator.  If called with no arguments,
+// Println outputs all fields in the current record.
 func (s *Script) Println(args ...interface{}) {
 	// No arguments: Output all fields of the current record.
 	if args == nil {
 		for i := 1; i <= s.NF; i++ {
-			fmt.Printf("%v", s.F(i))
+			fmt.Fprintf(s.Output, "%v", s.F(i))
 			if i == s.NF {
-				fmt.Printf("%s", s.ors)
+				fmt.Fprintf(s.Output, "%s", s.ors)
 			} else {
-				fmt.Printf("%s", s.ofs)
+				fmt.Fprintf(s.Output, "%s", s.ofs)
 			}
 		}
 		return
@@ -169,11 +172,11 @@ func (s *Script) Println(args ...interface{}) {
 
 	// One or more arguments: Output them.
 	for i, arg := range args {
-		fmt.Printf("%v", arg)
+		fmt.Fprintf(s.Output, "%v", arg)
 		if i == len(args)-1 {
-			fmt.Printf("%s", s.ors)
+			fmt.Fprintf(s.Output, "%s", s.ors)
 		} else {
-			fmt.Printf("%s", s.ofs)
+			fmt.Fprintf(s.Output, "%s", s.ofs)
 		}
 	}
 }
@@ -212,10 +215,10 @@ func End(s *Script) bool {
 	return s.state == atEnd
 }
 
-// The printRecord statement outputs the current record verbatim to the
-// standard output device.
+// The printRecord statement outputs the current record verbatim to the current
+// output stream.
 func printRecord(s *Script) {
-	fmt.Printf("%v\n", s.fields[0])
+	fmt.Fprintf(s.Output, "%v%s", s.fields[0], s.ors)
 }
 
 // Next stops processing the current record and proceeds with the next record.

@@ -320,62 +320,50 @@ func (s *Script) compileRegexp(expr string) (*regexp.Regexp, error) {
 	return re, nil
 }
 
-// makeFieldSplitter returns a splitter that returns the next field.
-func (s *Script) makeFieldSplitter() func([]byte, bool) (int, []byte, error) {
-	// If the separator is empty, each rune is a separate field.
-	if s.fs == "" {
-		return bufio.ScanRunes
-	}
-
-	// If the separator is a single space, return the next word as the
-	// field.
-	if s.fs == " " {
-		return bufio.ScanWords
-	}
-
-	// If the separator is a single character and the record terminator is
-	// not empty (a special case in AWK), split based on that.  This code
-	// is derived from the bufio.ScanWords source.
-	if utf8.RuneCountInString(s.fs) == 1 && s.rs != "" {
-		// Ensure the separator character is valid.
-		firstRune, _ := utf8.DecodeRuneInString(s.fs)
-		if firstRune == utf8.RuneError {
-			return func(data []byte, atEOF bool) (int, []byte, error) {
-				return 0, nil, errors.New("Invalid rune in separator")
-			}
-		}
-
-		// The separator is valid.  Return a splitter customized to
-		// that separator.
-		returnedFinalToken := false // true=already returned a final, non-terminated token; false=didn't
-		return func(data []byte, atEOF bool) (advance int, token []byte, err error) {
-			// Scan until we see a separator or run out of data.
-			for width, i := 0, 0; i < len(data); i += width {
-				var r rune
-				r, width = utf8.DecodeRune(data[i:])
-				if r == utf8.RuneError {
-					return 0, nil, errors.New("Invalid rune in input data")
-				}
-				if r == firstRune {
-					return i + width, data[:i], nil
-				}
-			}
-
-			// We didn't see a separator.  If we're at EOF, we have
-			// a final, non-terminated token.  Return it (unless we
-			// already did).
-			if atEOF && !returnedFinalToken {
-				returnedFinalToken = true
-				return len(data), data, nil
-			}
-
-			// Request more data.
-			return 0, nil, nil
+// makeSingleCharFieldSplitter returns a splitter that returns the next field
+// by splitting on a single character (except for space, which is a special
+// case handled elsewhere).
+func (s *Script) makeSingleCharFieldSplitter() func([]byte, bool) (int, []byte, error) {
+	// Ensure the separator character is valid.
+	firstRune, _ := utf8.DecodeRuneInString(s.fs)
+	if firstRune == utf8.RuneError {
+		return func(data []byte, atEOF bool) (int, []byte, error) {
+			return 0, nil, errors.New("Invalid rune in separator")
 		}
 	}
 
-	// If the separator is multiple characters (or the record terminator is
-	// empty), treat it as a regular expression, and scan based on that.
+	// The separator is valid.  Return a splitter customized to that
+	// separator.
+	returnedFinalToken := false // true=already returned a final, non-terminated token; false=didn't
+	return func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+		// Scan until we see a separator or run out of data.
+		for width, i := 0, 0; i < len(data); i += width {
+			var r rune
+			r, width = utf8.DecodeRune(data[i:])
+			if r == utf8.RuneError {
+				return 0, nil, errors.New("Invalid rune in input data")
+			}
+			if r == firstRune {
+				return i + width, data[:i], nil
+			}
+		}
+
+		// We didn't see a separator.  If we're at EOF, we have
+		// a final, non-terminated token.  Return it (unless we
+		// already did).
+		if atEOF && !returnedFinalToken {
+			returnedFinalToken = true
+			return len(data), data, nil
+		}
+
+		// Request more data.
+		return 0, nil, nil
+	}
+}
+
+// makeREFieldSplitter returns a splitter that returns the next field by
+// splitting on a regular expression.
+func (s *Script) makeREFieldSplitter() func([]byte, bool) (int, []byte, error) {
 	// First, we ensure the separator character is valid.
 	var sepRegexp *regexp.Regexp
 	var err error
@@ -416,6 +404,31 @@ func (s *Script) makeFieldSplitter() func([]byte, bool) (int, []byte, error) {
 		// Request more data.
 		return 0, nil, nil
 	}
+}
+
+// makeFieldSplitter returns a splitter that returns the next field.
+func (s *Script) makeFieldSplitter() func([]byte, bool) (int, []byte, error) {
+	// If the separator is empty, each rune is a separate field.
+	if s.fs == "" {
+		return bufio.ScanRunes
+	}
+
+	// If the separator is a single space, return the next word as the
+	// field.
+	if s.fs == " " {
+		return bufio.ScanWords
+	}
+
+	// If the separator is a single character and the record terminator is
+	// not empty (a special case in AWK), split based on that.  This code
+	// is derived from the bufio.ScanWords source.
+	if utf8.RuneCountInString(s.fs) == 1 && s.rs != "" {
+		return s.makeSingleCharFieldSplitter()
+	}
+
+	// If the separator is multiple characters (or the record terminator is
+	// empty), treat it as a regular expression, and scan based on that.
+	return s.makeREFieldSplitter()
 }
 
 // makeRecordSplitter returns a splitter that returns the next record.

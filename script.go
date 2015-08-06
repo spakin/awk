@@ -115,6 +115,9 @@ func (s *Script) SetFS(fs string) {
 // given a non-positive field width.
 func (s *Script) SetFieldWidths(fw []int) {
 	// Sanity-check the argument.
+	if fw == nil {
+		panic("SetFieldWidths was passed a nil slice")
+	}
 	for _, w := range fw {
 		if w <= 0 {
 			panic(fmt.Sprintf("SetFieldWidths was passed an invalid field width (%d)", w))

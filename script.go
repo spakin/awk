@@ -46,18 +46,19 @@ type Script struct {
 	RStart  int         // 1-based index of the previous regexp match (Value.Match)
 	RLength int         // Length of the previous regexp match (Value.Match)
 
-	rs        string                    // Input record separator, newline by default
-	fs        string                    // Input field separator, space by default
-	ors       string                    // Output record separator, newline by default
-	ofs       string                    // Output field separator, space by default
-	ignCase   bool                      // true: REs are case-insensitive; false: case-sensitive
-	rules     []statement               // List of pattern-action pairs to execute
-	fields    []*Value                  // Fields in the current record; fields[0] is the entire record
-	regexps   map[string]*regexp.Regexp // Map from a regular-expression string to a compiled regular expression
-	rsScanner *bufio.Scanner            // Scanner associated with RS
-	input     *bufio.Reader             // Script input stream
-	state     parseState                // What we're currently parsing
-	stop      stopState                 // What we should stop doing
+	rs          string                    // Input record separator, newline by default
+	fs          string                    // Input field separator, space by default
+	fieldWidths []int                     // Fixed-width column sizes
+	ors         string                    // Output record separator, newline by default
+	ofs         string                    // Output field separator, space by default
+	ignCase     bool                      // true: REs are case-insensitive; false: case-sensitive
+	rules       []statement               // List of pattern-action pairs to execute
+	fields      []*Value                  // Fields in the current record; fields[0] is the entire record
+	regexps     map[string]*regexp.Regexp // Map from a regular-expression string to a compiled regular expression
+	rsScanner   *bufio.Scanner            // Scanner associated with RS
+	input       *bufio.Reader             // Script input stream
+	state       parseState                // What we're currently parsing
+	stop        stopState                 // What we should stop doing
 }
 
 // NewScript initializes a new Script with default values.
@@ -104,7 +105,17 @@ func (s *Script) SetRS(rs string) {
 // character becomes a separate field; and if the field separator is multiple
 // characters, it's treated as a regular expression (subject to the current
 // setting of Script.IgnoreCase).
-func (s *Script) SetFS(fs string) { s.fs = fs }
+func (s *Script) SetFS(fs string) {
+	s.fs = fs
+	s.fieldWidths = nil
+}
+
+// SetFieldWidths indicates that each record is composed of fixed-width columns
+// and specifies the width in characters of each column.
+func (s *Script) SetFieldWidths(fw []int) {
+	s.fs = " "
+	s.fieldWidths = fw
+}
 
 // SetORS sets the output record separator.
 func (s *Script) SetORS(ors string) { s.ors = ors }
@@ -406,8 +417,46 @@ func (s *Script) makeREFieldSplitter() func([]byte, bool) (int, []byte, error) {
 	}
 }
 
+// makeFixedFieldSplitter returns a splitter than returns the next field by
+// splitting a record into fixed-size chunks.
+func (s *Script) makeFixedFieldSplitter() func([]byte, bool) (int, []byte, error) {
+	f := 0                      // Index into s.fieldWidths
+	returnedFinalToken := false // true=already returned a final, non-terminated token; false=didn't
+	return func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+		// If we've exhausted s.fieldWidths, return empty-handed.
+		if f >= len(s.fieldWidths) {
+			return 0, nil, nil
+		}
+
+		// If we have enough characters for the current field, return a
+		// token and advance to the next field.
+		fw := s.fieldWidths[f]
+		if len(data) >= fw {
+			f++
+			return fw, data[:fw], nil
+		}
+
+		// If we don't have enough characters for the current field but
+		// we're at EOF, return whatever we have (unless we already
+		// did).
+		if atEOF && !returnedFinalToken {
+			returnedFinalToken = true
+			return len(data), data, nil
+		}
+
+		// If we don't have enough characters for the current field and
+		// we're not at EOF, request more data.
+		return 0, nil, nil
+	}
+}
+
 // makeFieldSplitter returns a splitter that returns the next field.
 func (s *Script) makeFieldSplitter() func([]byte, bool) (int, []byte, error) {
+	// If we were given fixed field widths, use them.
+	if s.fieldWidths != nil {
+		return s.makeFixedFieldSplitter()
+	}
+
 	// If the separator is empty, each rune is a separate field.
 	if s.fs == "" {
 		return bufio.ScanRunes

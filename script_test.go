@@ -162,13 +162,39 @@ func TestSplitFieldREIgnCase(t *testing.T) {
 	scr := NewScript()
 	scr.SetFS("x+")
 	scr.IgnoreCase(true)
-	scr.splitRecord(recordStr)
+	err = scr.splitRecord(recordStr)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Check the result.
 	for i := 1; i <= scr.NF; i++ {
 		f := scr.F(i).String()
 		if f != words[i-1] {
 			t.Fatalf("Expected %q for field %d but received %q", words[i-1], i, f)
+		}
+	}
+}
+
+// TestSplitFieldFixed tests splitting a field based on fixed-width columns.
+func TestSplitFieldFixed(t *testing.T) {
+	// Determine what we want to provide and see in return.
+	inputStr := "CeterumcenseoCarthaginemessedelendam."
+	desiredOutput := []string{"Ceterum", "censeo", "Carthaginem", "esse", "delendam."}
+
+	// Split the record.
+	scr := NewScript()
+	scr.SetFieldWidths([]int{7, 6, 11, 4, 123})
+	err := scr.splitRecord(inputStr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Check the result.
+	for i := 1; i <= scr.NF; i++ {
+		f := scr.F(i).String()
+		if f != desiredOutput[i-1] {
+			t.Fatalf("Expected %q for field %d but received %q", desiredOutput[i-1], i, f)
 		}
 	}
 }

@@ -112,7 +112,7 @@ func (s *Script) SetFS(fs string) {
 
 // SetFieldWidths indicates that each record is composed of fixed-width columns
 // and specifies the width in characters of each column.  This method panics if
-// given a non-positive field width.
+// given a nil argument or if any of the field widths are non-positive.
 func (s *Script) SetFieldWidths(fw []int) {
 	// Sanity-check the argument.
 	if fw == nil {

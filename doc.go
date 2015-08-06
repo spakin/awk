@@ -95,6 +95,8 @@ expressions and null strings (implying blank lines as separators)
 • control over field separation (FS), including support for regular expressions
 and null strings (implying single-character fields)
 
+• support for fixed-width fields (FIELDWIDTHS)
+
 • control over case-sensitive vs. case-insensitive comparisons (IGNORECASE)
 
 • control over the number conversion format (CONVFMT)

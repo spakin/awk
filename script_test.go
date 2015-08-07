@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"bytes"
 	"regexp"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -450,5 +451,33 @@ duck 9
 	desiredOutputStr = `Duck 1|duck 2|duck 3|duck 4|Duck 6|duck 7|DUCK 8|duck 9|`
 	if outputStr != desiredOutputStr {
 		t.Fatalf("Expected %#v but received %#v", desiredOutputStr, outputStr)
+	}
+}
+
+// TestFInts tests the bulk conversion of fields to ints.
+func TestFInts(t *testing.T) {
+	// Define a script and some test inputs and outputs.
+	scr := NewScript()
+	inputStr := "8675309"
+	desiredOutput := []int{0, 3, 5, 6, 7, 8, 9}
+	var output []int
+	scr.SetFS("")
+	scr.AppendStmt(nil, func(s *Script) {
+		iList := s.FInts()
+		sort.Ints(iList)
+		output = iList
+	})
+
+	// Run the script.
+	err := scr.Run(strings.NewReader(inputStr))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Validate the output.
+	for i, val := range desiredOutput {
+		if val != output[i] {
+			t.Fatalf("Expected %v but received %v", desiredOutput, output)
+		}
 	}
 }

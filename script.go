@@ -147,6 +147,35 @@ func (s *Script) F(i int) *Value {
 	return s.NewValue("")
 }
 
+// FStrings returns all fields in the current record as a []string of length
+// NF.
+func (s *Script) FStrings() []string {
+	a := make([]string, s.NF)
+	for i := 0; i < s.NF; i++ {
+		a[i] = s.F(i + 1).String()
+	}
+	return a
+}
+
+// FInts returns all fields in the current record as a []int of length NF.
+func (s *Script) FInts() []int {
+	a := make([]int, s.NF)
+	for i := 0; i < s.NF; i++ {
+		a[i] = s.F(i + 1).Int()
+	}
+	return a
+}
+
+// FFloat64s returns all fields in the current record as a []float64 of length
+// NF.
+func (s *Script) FFloat64s() []float64 {
+	a := make([]float64, s.NF)
+	for i := 0; i < s.NF; i++ {
+		a[i] = s.F(i + 1).Float64()
+	}
+	return a
+}
+
 // SetF sets a field of the current record to the given Value.  Field numbers
 // are 1-based.  Field 0 refers to the entire record.  Setting it causes the
 // entire line to be reparsed (and NF recomputed).  Setting a field numbered

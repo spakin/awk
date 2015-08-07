@@ -203,7 +203,7 @@ func ExampleValueArray_Set() {
 }
 
 // Sort each line's columns, which are assumed to be floating-point numbers.
-func ExampleFFloat64s() {
+func ExampleScript_FFloat64s() {
 	s := awk.NewScript()
 	s.AppendStmt(nil, func(s *awk.Script) {
 		nums := s.FFloat64s()

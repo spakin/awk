@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/spakin/awk"
 	"os"
+	"sort"
 )
 
 var s *awk.Script
@@ -199,4 +200,18 @@ func ExampleValueArray_Set() {
 			}
 		}
 	}
+}
+
+// Sort each line's columns, which are assumed to be floating-point numbers.
+func ExampleFFloat64s() {
+	s := awk.NewScript()
+	s.AppendStmt(nil, func(s *awk.Script) {
+		nums := s.FFloat64s()
+		sort.Float64s(nums)
+		for _, n := range nums[:len(nums)-1] {
+			fmt.Printf("%.5g ", n)
+		}
+		fmt.Printf("%.5g\n", nums[len(nums)-1])
+	})
+	s.Run(os.Stdin)
 }

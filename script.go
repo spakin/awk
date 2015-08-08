@@ -46,6 +46,7 @@ type Script struct {
 	RStart  int         // 1-based index of the previous regexp match (Value.Match)
 	RLength int         // Length of the previous regexp match (Value.Match)
 
+	nf0         int                       // Value of NF for which F(0) was computed
 	rs          string                    // Input record separator, newline by default
 	fs          string                    // Input field separator, space by default
 	fieldWidths []int                     // Fixed-width column sizes
@@ -69,6 +70,7 @@ func NewScript() *Script {
 		SubSep:  "\034",
 		NR:      0,
 		NF:      0,
+		nf0:     0,
 		rs:      "\n",
 		fs:      " ",
 		ors:     "\n",
@@ -130,21 +132,59 @@ func (s *Script) SetFieldWidths(fw []int) {
 	s.fieldWidths = fw
 }
 
+// recomputeF0 recomputes F(0) by concatenating F(1)...F(NF) with OFS.
+func (s *Script) recomputeF0() {
+	if len(s.fields) >= 1 {
+		s.fields[0] = s.NewValue(strings.Join(s.FStrings(), s.ofs))
+	}
+	s.nf0 = s.NF
+}
+
 // SetORS sets the output record separator.
 func (s *Script) SetORS(ors string) { s.ors = ors }
 
 // SetOFS sets the output field separator.
-func (s *Script) SetOFS(ofs string) { s.ofs = ofs }
+func (s *Script) SetOFS(ofs string) {
+	s.ofs = ofs
+	s.recomputeF0()
+}
 
 // F returns a specified field of the current record.  Field numbers are
 // 1-based.  Field 0 refers to the entire record.  Requesting a field greater
 // than NF returns a zero value.  Requesting a negative field number panics
 // with an out-of-bounds error.
 func (s *Script) F(i int) *Value {
+	if i == 0 && s.NF != s.nf0 {
+		s.recomputeF0()
+	}
 	if i < len(s.fields) {
 		return s.fields[i]
 	}
 	return s.NewValue("")
+}
+
+// SetF sets a field of the current record to the given Value.  Field numbers
+// are 1-based.  Field 0 refers to the entire record.  Setting it causes the
+// entire line to be reparsed (and NF recomputed).  Setting a field numbered
+// larger than NF extends NF to that value.  Setting a negative field number
+// panics with an out-of-bounds error.
+func (s *Script) SetF(i int, v *Value) {
+	// Zero index: Assign and reparse the entire record.
+	if i == 0 {
+		s.splitRecord(v.String())
+		return
+	}
+
+	// Index larger than NF: extend NF and try again.
+	if i >= len(s.fields) {
+		for i >= len(s.fields) {
+			s.fields = append(s.fields, s.NewValue(""))
+		}
+		s.NF = len(s.fields) - 1
+	}
+
+	// Index not larger than (the possibly modified) NF: write the field.
+	s.fields[i] = v
 }
 
 // FStrings returns all fields in the current record as a []string of length
@@ -174,30 +214,6 @@ func (s *Script) FFloat64s() []float64 {
 		a[i] = s.F(i + 1).Float64()
 	}
 	return a
-}
-
-// SetF sets a field of the current record to the given Value.  Field numbers
-// are 1-based.  Field 0 refers to the entire record.  Setting it causes the
-// entire line to be reparsed (and NF recomputed).  Setting a field numbered
-// larger than NF extends NF to that value.  Setting a negative field number
-// panics with an out-of-bounds error.
-func (s *Script) SetF(i int, v *Value) {
-	// Zero index: Assign and reparse the entire record.
-	if i == 0 {
-		s.splitRecord(v.String())
-		return
-	}
-
-	// Index larger than NF: extend NF and try again.
-	if i >= len(s.fields) {
-		for i >= len(s.fields) {
-			s.fields = append(s.fields, s.NewValue(""))
-		}
-		s.NF = len(s.fields) - 1
-	}
-
-	// Index not larger than (the possibly modified) NF: write the field.
-	s.fields[i] = v
 }
 
 // IgnoreCase specifies whether regular-expression and string comparisons
@@ -631,6 +647,7 @@ func (s *Script) splitRecord(rec string) error {
 	}
 	s.fields = fields
 	s.NF = len(fields) - 1
+	s.nf0 = s.NF
 	return nil
 }
 

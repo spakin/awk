@@ -185,6 +185,9 @@ func (s *Script) SetF(i int, v *Value) {
 
 	// Index not larger than (the possibly modified) NF: write the field.
 	s.fields[i] = v
+
+	// Force F(0) to be recomputed the next time it's accessed.
+	s.nf0 = -1
 }
 
 // FStrings returns all fields in the current record as a []string of length

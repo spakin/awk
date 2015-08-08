@@ -482,8 +482,8 @@ func TestFInts(t *testing.T) {
 	}
 }
 
-// TestFieldCreate ensures that field creation updates F(0).
-func TestFieldCreate(t *testing.T) {
+// TestFieldCreation0 ensures that field creation updates F(0).
+func TestFieldCreation0(t *testing.T) {
 	// Define a script and some test inputs and outputs.
 	input := "spam egg spam spam bacon spam"
 	desiredOutput := "spam,egg,spam,spam,bacon,spam,,,,,sausage"
@@ -505,8 +505,31 @@ func TestFieldCreate(t *testing.T) {
 	}
 }
 
-// TestNFModification ensures that modifying NF updates F(0).
-func TestNFModification(t *testing.T) {
+// TestFieldModification0 ensures that field modification updates F(0).
+func TestFieldModification0(t *testing.T) {
+	// Define a script and some test inputs and outputs.
+	input := "spam egg spam spam bacon spam"
+	desiredOutput := "spam,egg,sausage,spam,bacon,spam"
+	var output string
+	scr := NewScript()
+	scr.AppendStmt(Begin, func(s *Script) { scr.SetOFS(",") })
+	scr.AppendStmt(nil, func(s *Script) {
+		scr.SetF(3, scr.NewValue("sausage"))
+		output = scr.F(0).String()
+	})
+
+	// Run the script and validate the output.
+	err := scr.Run(strings.NewReader(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if output != desiredOutput {
+		t.Fatalf("Expected %q but received %q", desiredOutput, output)
+	}
+}
+
+// TestNFModification0 ensures that modifying NF updates F(0).
+func TestNFModification0(t *testing.T) {
 	// Define a script and some test inputs and outputs.
 	input := "spam egg spam spam bacon spam"
 	desiredOutput := "spam egg spam"

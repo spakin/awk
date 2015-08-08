@@ -97,6 +97,8 @@ and null strings (implying single-character fields)
 
 • support for fixed-width fields (FIELDWIDTHS)
 
+• support for fields defined by a regular expression (FPAT)
+
 • control over case-sensitive vs. case-insensitive comparisons (IGNORECASE)
 
 • control over the number conversion format (CONVFMT)
@@ -111,7 +113,6 @@ and null strings (implying single-character fields)
 processing (exit)
 
 • maintenance of regular-expression status variables (RT, RSTART, and RLENGTH)
-
 
 A number of examples ported from the POSIX 1003.1 standard document
 (http://pubs.opengroup.org/onlinepubs/9699919799/utilities/awk.html) are

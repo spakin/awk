@@ -50,6 +50,7 @@ type Script struct {
 	rs          string                    // Input record separator, newline by default
 	fs          string                    // Input field separator, space by default
 	fieldWidths []int                     // Fixed-width column sizes
+	fPat        string                    // Input field regular expression
 	ors         string                    // Output record separator, newline by default
 	ofs         string                    // Output field separator, space by default
 	ignCase     bool                      // true: REs are case-insensitive; false: case-sensitive
@@ -110,6 +111,7 @@ func (s *Script) SetRS(rs string) {
 func (s *Script) SetFS(fs string) {
 	s.fs = fs
 	s.fieldWidths = nil
+	s.fPat = ""
 }
 
 // SetFieldWidths indicates that each record is composed of fixed-width columns
@@ -126,10 +128,20 @@ func (s *Script) SetFieldWidths(fw []int) {
 		}
 	}
 
-	// Assign the field widths and reset the field separator (not strictly
-	// but consistent with the SetFS method).
+	// Assign the field widths and reset the field separator and field
+	// matcher (not strictly but consistent with the SetFS method).
 	s.fs = " "
 	s.fieldWidths = fw
+	s.fPat = ""
+}
+
+// SetFPat defines a "field pattern", a regular expression that matches fields.
+// This lies in contrast to providing a regular expression to SetFS, which
+// matches the separation between fields, not the fields themselves.
+func (s *Script) SetFPat(fp string) {
+	s.fs = " "
+	s.fieldWidths = nil
+	s.fPat = fp
 }
 
 // recomputeF0 recomputes F(0) by concatenating F(1)...F(NF) with OFS.
@@ -436,7 +448,7 @@ func (s *Script) makeSingleCharFieldSplitter() func([]byte, bool) (int, []byte, 
 // makeREFieldSplitter returns a splitter that returns the next field by
 // splitting on a regular expression.
 func (s *Script) makeREFieldSplitter() func([]byte, bool) (int, []byte, error) {
-	// First, we ensure the separator character is valid.
+	// Ensure that the regular expression is valid.
 	var sepRegexp *regexp.Regexp
 	var err error
 	if s.rs == "" {
@@ -511,11 +523,40 @@ func (s *Script) makeFixedFieldSplitter() func([]byte, bool) (int, []byte, error
 	}
 }
 
+// makeREFieldMatcher returns a splitter that returns the next field by
+// matching against a regular expression.
+func (s *Script) makeREFieldMatcher() func([]byte, bool) (int, []byte, error) {
+	// Ensure that the regular expression is valid.
+	sepRegexp, err := s.compileRegexp(s.fPat)
+	if err != nil {
+		return func(data []byte, atEOF bool) (int, []byte, error) {
+			return 0, nil, err
+		}
+	}
+
+	// The regular expression is valid.  Return a splitter customized to
+	// that regular expression.
+	return func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+		// If we match the regular expression, return the match.
+		// Otherwise, request more data.
+		loc := sepRegexp.FindIndex(data)
+		if loc == nil {
+			return 0, nil, nil
+		}
+		return loc[1], data[loc[0]:loc[1]], nil
+	}
+}
+
 // makeFieldSplitter returns a splitter that returns the next field.
 func (s *Script) makeFieldSplitter() func([]byte, bool) (int, []byte, error) {
 	// If we were given fixed field widths, use them.
 	if s.fieldWidths != nil {
 		return s.makeFixedFieldSplitter()
+	}
+
+	// If were given a field-matching regular expression, use it.
+	if s.fPat != "" {
+		return s.makeREFieldMatcher()
 	}
 
 	// If the separator is empty, each rune is a separate field.

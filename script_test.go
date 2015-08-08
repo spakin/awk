@@ -200,6 +200,32 @@ func TestSplitFieldFixed(t *testing.T) {
 	}
 }
 
+// TestSplitFieldREPat tests splitting a field based on a field-matching
+// regular expression.
+func TestSplitFieldREPat(t *testing.T) {
+	// Determine what we want to provide and see in return.
+	inputStr := "23 Skidoo.  3-2-1 blast off!  99 red balloons."
+	desiredOutput := 122
+
+	// Split the record.
+	scr := NewScript()
+	scr.SetFPat(`-?\d+`)
+	err := scr.splitRecord(inputStr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Check the result.
+	output := 0
+	for i := 1; i <= scr.NF; i++ {
+		t.Log(scr.F(i))
+		output += scr.F(i).Int()
+	}
+	if output != desiredOutput {
+		t.Fatalf("Expected %d but received %d", desiredOutput, output)
+	}
+}
+
 // TestBeginEnd tests creating and running a script that contains a Begin
 // action and an End action.
 func TestBeginEnd(t *testing.T) {
@@ -387,7 +413,8 @@ func TestRecordRange(t *testing.T) {
 	}
 }
 
-// TestSplitRecordRE tests splitting record into regexp-separated fields.
+// TestSplitRecordRE tests splitting the input string into regexp-separated
+// records.
 func TestSplitRecordRE(t *testing.T) {
 	scr := NewScript()
 	pluses := 0

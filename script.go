@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"reflect"
 	"regexp"
 	"strings"
 	"unicode/utf8"
@@ -55,7 +54,9 @@ type Script struct {
 	ors         string                    // Output record separator, newline by default
 	ofs         string                    // Output field separator, space by default
 	ignCase     bool                      // true: REs are case-insensitive; false: case-sensitive
+	beginRules  []ActionFunc              // List of actions to execute before any records are read
 	rules       []statement               // List of pattern-action pairs to execute
+	endRules    []ActionFunc              // List of actions to execute after all records are read
 	fields      []*Value                  // Fields in the current record; fields[0] is the entire record
 	regexps     map[string]*regexp.Regexp // Map from a regular-expression string to a compiled regular expression
 	rsScanner   *bufio.Scanner            // Scanner associated with RS
@@ -67,21 +68,23 @@ type Script struct {
 // NewScript initializes a new Script with default values.
 func NewScript() *Script {
 	return &Script{
-		Output:  os.Stdout,
-		ConvFmt: "%.6g",
-		SubSep:  "\034",
-		NR:      0,
-		NF:      0,
-		nf0:     0,
-		rs:      "\n",
-		fs:      " ",
-		ors:     "\n",
-		ofs:     " ",
-		ignCase: false,
-		rules:   make([]statement, 0, 10),
-		fields:  make([]*Value, 0),
-		regexps: make(map[string]*regexp.Regexp, 10),
-		state:   notRunning,
+		Output:     os.Stdout,
+		ConvFmt:    "%.6g",
+		SubSep:     "\034",
+		NR:         0,
+		NF:         0,
+		nf0:        0,
+		rs:         "\n",
+		fs:         " ",
+		ors:        "\n",
+		ofs:        " ",
+		ignCase:    false,
+		beginRules: make([]ActionFunc, 0, 10),
+		rules:      make([]statement, 0, 10),
+		endRules:   make([]ActionFunc, 0, 10),
+		fields:     make([]*Value, 0),
+		regexps:    make(map[string]*regexp.Regexp, 10),
+		state:      notRunning,
 	}
 }
 
@@ -282,22 +285,10 @@ type statement struct {
 	Action  ActionFunc
 }
 
-// The Begin pattern is true only at the beginning of a script, before any
-// records have been read.
-func Begin(s *Script) bool {
-	return s.state == atBegin
-}
-
 // The matchAny pattern is true only in the middle of a script, when a record
 // is available for parsing.
 func matchAny(s *Script) bool {
 	return s.state == inMiddle
-}
-
-// The End pattern is true only at the end of a script, after all records have
-// been read.
-func End(s *Script) bool {
-	return s.state == atEnd
 }
 
 // The printRecord statement outputs the current record verbatim to the current
@@ -336,12 +327,44 @@ func Range(p1, p2 PatternFunc) PatternFunc {
 	}
 }
 
+// AppendBeginAction appends an action to a script that will execute before any
+// records are read.
+func (s *Script) AppendBeginAction(a ActionFunc) {
+	// Panic if we were called on a running script.
+	if s.state != notRunning {
+		panic("AppendBeginAction was called from a running script")
+	}
+
+	// Panic if the action is nil.
+	if a == nil {
+		panic("AppendBeginAction was passed a nil action")
+	}
+
+	// Append the action to the list of begin actions.
+	s.beginRules = append(s.beginRules, a)
+}
+
+// AppendEndAction appends an action to a script that will execute after all
+// records are read.
+func (s *Script) AppendEndAction(a ActionFunc) {
+	// Panic if we were called on a running script.
+	if s.state != notRunning {
+		panic("AppendEndAction was called from a running script")
+	}
+
+	// Panic if the action is nil.
+	if a == nil {
+		panic("AppendEndAction was passed a nil action")
+	}
+
+	// Append the action to the list of end actions.
+	s.endRules = append(s.endRules, a)
+}
+
 // AppendStmt appends a pattern-action pair to a Script.  If the pattern
 // function is nil, the action will be performed on every record.  If the
 // action function is nil, the record will be output verbatim to the standard
-// output device.  The predefined pattern awk.Begin matches before any records
-// have been read, and the predefined pattern awk.End matches after all records
-// have been read.
+// output device.
 func (s *Script) AppendStmt(p PatternFunc, a ActionFunc) {
 	// Panic if we were called on a running script.
 	if s.state != notRunning {
@@ -355,20 +378,6 @@ func (s *Script) AppendStmt(p PatternFunc, a ActionFunc) {
 	}
 	if p == nil {
 		stmt.Pattern = matchAny
-	} else {
-		// Wrap all functions other than Begin and End with a test for
-		// being in the "middle" state.  Unfortunately, according to
-		// https://golang.org/pkg/reflect/#Value.Pointer, the test we
-		// perform is unsafe.
-		pPtr := reflect.ValueOf(p).Pointer()
-		if pPtr != reflect.ValueOf(Begin).Pointer() && pPtr != reflect.ValueOf(End).Pointer() {
-			stmt.Pattern = func(s *Script) bool {
-				if s.state == inMiddle {
-					return p(s)
-				}
-				return false
-			}
-		}
 	}
 	if a == nil {
 		stmt.Action = printRecord
@@ -690,19 +699,6 @@ func (s *Script) splitRecord(rec string) error {
 // Execute a script against a given input stream.  It is perfectly valid to run
 // the same script on multiple input streams.
 func (s *Script) Run(r io.Reader) error {
-	// Define a helper function that makes a pass through all user-defined
-	// statements.
-	walkStatements := func() {
-		for _, rule := range s.rules {
-			if rule.Pattern(s) {
-				rule.Action(s)
-				if s.stop != dontStop {
-					return
-				}
-			}
-		}
-	}
-
 	// Wrap a buffered reader around the given reader.
 	rb, ok := r.(*bufio.Reader)
 	if !ok {
@@ -717,9 +713,8 @@ func (s *Script) Run(r io.Reader) error {
 
 	// Process all Begin actions.
 	s.state = atBegin
-	walkStatements()
-	if s.stop == stopScript {
-		return nil
+	for _, a := range s.beginRules {
+		a(s)
 	}
 
 	// Create (and store) a new scanner based on the record terminator.
@@ -744,7 +739,14 @@ func (s *Script) Run(r io.Reader) error {
 		s.splitRecord(rec)
 
 		// Process all applicable actions.
-		walkStatements()
+		for _, rule := range s.rules {
+			if rule.Pattern(s) {
+				rule.Action(s)
+				if s.stop != dontStop {
+					break
+				}
+			}
+		}
 		if s.stop == stopScript {
 			return nil
 		}
@@ -752,7 +754,9 @@ func (s *Script) Run(r io.Reader) error {
 
 	// Process all End actions
 	s.state = atEnd
-	walkStatements()
+	for _, a := range s.endRules {
+		a(s)
+	}
 	s.state = notRunning
 	return nil
 }

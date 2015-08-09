@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"reflect"
 	"regexp"
 	"strings"
 	"unicode/utf8"
@@ -355,21 +356,12 @@ func (s *Script) AppendStmt(p PatternFunc, a ActionFunc) {
 	if p == nil {
 		stmt.Pattern = matchAny
 	} else {
-		// Go unfortunately doesn't allow function comparisons.  Hence,
-		// we resort to some trickery to determine if we were passed
-		// Begin, End, or neither.  This trick does demand that pattern
-		// execution be idempotent.
-		s.state = atBegin
-		isBegin := p(s)
-		s.state = inMiddle
-		isMiddle := p(s)
-		s.state = atEnd
-		isEnd := p(s)
-		s.state = notRunning
-		switch {
-		case isBegin && !isMiddle && !isEnd:
-		case !isBegin && !isMiddle && isEnd:
-		default:
+		// Wrap all functions other than Begin and End with a test for
+		// being in the "middle" state.  Unfortunately, according to
+		// https://golang.org/pkg/reflect/#Value.Pointer, the test we
+		// perform is unsafe.
+		pPtr := reflect.ValueOf(p).Pointer()
+		if pPtr != reflect.ValueOf(Begin).Pointer() && pPtr != reflect.ValueOf(End).Pointer() {
 			stmt.Pattern = func(s *Script) bool {
 				if s.state == inMiddle {
 					return p(s)

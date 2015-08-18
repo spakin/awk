@@ -13,6 +13,10 @@ import (
 	"unicode/utf8"
 )
 
+// A scriptAborter is an error that causes the current script to abort but lets
+// the rest of the program run.
+type scriptAborter error
+
 // A parseState indicates where we are in our parsing state.
 type parseState int
 
@@ -86,19 +90,24 @@ func NewScript() *Script {
 	}
 }
 
-// SetRS sets the input record separator (really, a record terminator).  In the
-// current implementation, it will panic if called after the first record is
-// read.  (It is acceptable to call SetRS from a Begin action, though.)  As in
-// AWK, if the record separator is a single character, that character is used
-// to separate records; if the record separator is multiple characters, it's
-// treated as a regular expression (subject to the current setting of
-// Script.IgnoreCase); and if the record separator is an empty string, records
-// are separated by blank lines.  That last case implicitly causes newlines to
-// be accepted as a field separator in addition to whatever was specified by
-// SetFS.
+// abortScript aborts the current script with a formatted error message.
+func (s *Script) abortScript(format string, a ...interface{}) {
+	s.stop = stopScript
+	panic(scriptAborter(fmt.Errorf(format, a...)))
+}
+
+// SetRS sets the input record separator (really, a record terminator).  It is
+// invalid to call SetRS after the first record is read.  (It is acceptable to
+// call SetRS from a Begin action, though.)  As in AWK, if the record separator
+// is a single character, that character is used to separate records; if the
+// record separator is multiple characters, it's treated as a regular
+// expression (subject to the current setting of Script.IgnoreCase); and if the
+// record separator is an empty string, records are separated by blank lines.
+// That last case implicitly causes newlines to be accepted as a field
+// separator in addition to whatever was specified by SetFS.
 func (s *Script) SetRS(rs string) {
 	if s.state == inMiddle {
-		panic("SetRS was called from a running script")
+		s.abortScript("SetRS was called from a running script")
 	}
 	s.rs = rs
 }
@@ -117,16 +126,16 @@ func (s *Script) SetFS(fs string) {
 }
 
 // SetFieldWidths indicates that each record is composed of fixed-width columns
-// and specifies the width in characters of each column.  This method panics if
-// given a nil argument or if any of the field widths are non-positive.
+// and specifies the width in characters of each column.  It is invalid to pass
+// SetFieldWidths a nil argument or a non-positive field width.
 func (s *Script) SetFieldWidths(fw []int) {
 	// Sanity-check the argument.
 	if fw == nil {
-		panic("SetFieldWidths was passed a nil slice")
+		s.abortScript("SetFieldWidths was passed a nil slice")
 	}
 	for _, w := range fw {
 		if w <= 0 {
-			panic(fmt.Sprintf("SetFieldWidths was passed an invalid field width (%d)", w))
+			s.abortScript(fmt.Sprintf("SetFieldWidths was passed an invalid field width (%d)", w))
 		}
 	}
 
@@ -374,7 +383,7 @@ func Auto(v ...interface{}) PatternFunc {
 			return func(s *Script) bool {
 				r, err := s.compileRegexp(x)
 				if err != nil {
-					panic(err)
+					s.abortScript(err.Error())
 				}
 				return r.MatchString(s.F(0).String())
 			}
@@ -391,7 +400,7 @@ func Auto(v ...interface{}) PatternFunc {
 			return func(s *Script) bool {
 				r, err := s.compileRegexp(xs)
 				if err != nil {
-					panic(err)
+					s.abortScript(err.Error())
 				}
 				return r.MatchString(s.F(0).String())
 			}
@@ -405,11 +414,11 @@ func Auto(v ...interface{}) PatternFunc {
 // AppendStmt appends a pattern-action pair to a Script.  If the pattern
 // function is nil, the action will be performed on every record.  If the
 // action function is nil, the record will be output verbatim to the standard
-// output device.
+// output device.  It is invalid to call AppendStmt from a running script.
 func (s *Script) AppendStmt(p PatternFunc, a ActionFunc) {
 	// Panic if we were called on a running script.
 	if s.state != notRunning {
-		panic("AppendStmt was called from a running script")
+		s.abortScript("AppendStmt was called from a running script")
 	}
 
 	// Append a statement to the list of rules.
@@ -739,7 +748,19 @@ func (s *Script) splitRecord(rec string) error {
 
 // Execute a script against a given input stream.  It is perfectly valid to run
 // the same script on multiple input streams.
-func (s *Script) Run(r io.Reader) error {
+func (s *Script) Run(r io.Reader) (err error) {
+	// Catch scriptAborter panics and return them as errors.  Re-throw all
+	// other panics.
+	defer func() {
+		if r := recover(); r != nil {
+			if e, ok := r.(scriptAborter); ok {
+				err = e
+			} else {
+				panic(r)
+			}
+		}
+	}()
+
 	// Wrap a buffered reader around the given reader.
 	rb, ok := r.(*bufio.Reader)
 	if !ok {

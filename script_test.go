@@ -681,3 +681,21 @@ func TestAutoIntRanges(t *testing.T) {
 		}
 	}
 }
+
+// TestCatchSetRSError tests that we properly catch invalid uses of SetRS.
+func TestCatchSetRSError(t *testing.T) {
+	// Define a script.
+	scr := NewScript()
+	scr.Begin = func(s *Script) { scr.IgnoreCase(true) }
+	scr.AppendStmt(nil, func(s *Script) { s.SetRS("/") })
+	expected := "SetRS was called from a running script"
+
+	// Run the script and ensure it threw the expected error.
+	err := scr.Run(strings.NewReader("The progress of rivers to the ocean is not so rapid as that of man to error."))
+	if err == nil {
+		t.Fatalf("Expected error %q, but no error was returned", expected)
+	}
+	if err.Error() != expected {
+		t.Fatalf("Expected error %q, but received error %q", expected, err.Error())
+	}
+}

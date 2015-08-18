@@ -576,3 +576,108 @@ func TestNFModification0(t *testing.T) {
 		t.Fatalf("Expected %q but received %q", desiredOutput, output)
 	}
 }
+
+// TestAutoInt tests the Auto function with an int argument.
+func TestAutoInt(t *testing.T) {
+	// Define a script and some test inputs and outputs.
+	input := strings.Replace("It does not matter how slowly you go as long as you do not stop.", " ", "\n", -1)
+	var output string
+	desiredOutput := "go"
+	scr := NewScript()
+	scr.AppendStmt(Auto(8), func(s *Script) { output = s.F(1).String() })
+
+	// Run the script and validate the output.
+	err := scr.Run(strings.NewReader(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if output != desiredOutput {
+		t.Fatalf("Expected %q but received %q", desiredOutput, output)
+	}
+}
+
+// TestAutoRegexp tests the Auto function with a Regexp argument.
+func TestAutoRegexp(t *testing.T) {
+	// Define a script and some test inputs and outputs.
+	input := strings.Replace("It does not matter how slowly you go as long as you do not stop.", " ", "\n", -1)
+	var output string
+	desiredOutput := "go"
+	scr := NewScript()
+	re := regexp.MustCompile("Go")
+	scr.Begin = func(s *Script) { scr.IgnoreCase(true) }
+	scr.AppendStmt(Auto(re), func(s *Script) { output = s.F(1).String() })
+
+	// Run the script and validate the output.
+	err := scr.Run(strings.NewReader(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if output != desiredOutput {
+		t.Fatalf("Expected %q but received %q", desiredOutput, output)
+	}
+}
+
+// TestAutoString tests the Auto function with a string argument.
+func TestAutoString(t *testing.T) {
+	// Define a script and some test inputs and outputs.
+	input := strings.Replace("It does not matter how slowly you go as long as you do not stop.", " ", "\n", -1)
+	var output string
+	desiredOutput := "go"
+	scr := NewScript()
+	scr.Begin = func(s *Script) { scr.IgnoreCase(true) }
+	scr.AppendStmt(Auto("Go"), func(s *Script) { output = s.F(1).String() })
+
+	// Run the script and validate the output.
+	err := scr.Run(strings.NewReader(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if output != desiredOutput {
+		t.Fatalf("Expected %q but received %q", desiredOutput, output)
+	}
+}
+
+// TestAutoIntRange tests the Auto function with a range of int arguments.
+func TestAutoIntRange(t *testing.T) {
+	// Define a script and some test inputs and outputs.
+	input := strings.Replace("10 20 30 40 50 60 70 80 90 100", " ", "\n", -1)
+	var output int
+	desiredOutput := 150
+	scr := NewScript()
+	scr.AppendStmt(Auto(4, 6), func(s *Script) { output += s.F(1).Int() })
+
+	// Run the script and validate the output.
+	err := scr.Run(strings.NewReader(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if output != desiredOutput {
+		t.Fatalf("Expected %d but received %d", desiredOutput, output)
+	}
+}
+
+// TestAutoIntRanges tests the Auto function with multiple ranges of int
+// arguments.
+func TestAutoIntRanges(t *testing.T) {
+	// Define a script and some test inputs and outputs.
+	input := strings.Replace("Don't be afraid to give up the good to go for the great.", " ", "\n", -1)
+	output := make([]string, 0, 15)
+	desiredOutput := strings.Split("Don't be afraid to go", " ")
+	scr := NewScript()
+	scr.Begin = func(s *Script) { scr.IgnoreCase(true) }
+	scr.AppendStmt(Auto(1, 3, 9, 10), func(s *Script) { output = append(output, s.F(1).String()) })
+
+	// Run the script and validate the output.
+	err := scr.Run(strings.NewReader(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(output) != len(desiredOutput) {
+		t.Fatalf("Expected %v but received %v", desiredOutput, output)
+	}
+	for i, o := range desiredOutput {
+		if output[i] != o {
+			t.Fatalf("Expected %v but received %v", desiredOutput, output)
+		}
+	}
+}

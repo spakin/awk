@@ -325,6 +325,83 @@ func Range(p1, p2 PatternFunc) PatternFunc {
 	}
 }
 
+// Auto provides a simplified mechanism for creating various common-case
+// PatternFunc functions.  It accepts zero, one, or an even number of
+// arguments.  If given no arguments, it matches every record.  If given a
+// single argument, its behavior depends on that argument's type: a
+// Script.PatternFunc is returned as is; a *regexp.Regexp matches against the
+// entire record; a string is treated as a regular expression and behaves
+// likewise; an int matches against NR; any other type causes a run-time panic.
+// If given an even number of arguments, pairs of arguments are treated as
+// ranges (cf. the Range function).  The PatternFunc returns true if the record
+// lies within any of the ranges.
+func Auto(v ...interface{}) PatternFunc {
+	if len(v) == 0 {
+		// No arguments: Match anything.
+		return matchAny
+	}
+	if len(v)%2 == 0 {
+		// Even number of arguments other than 0: Return a disjunction
+		// of ranges.
+		fList := make([]PatternFunc, len(v)/2)
+		for i := 0; i < len(v); i += 2 {
+			f1 := Auto(v[i])
+			f2 := Auto(v[i+1])
+			fList[i/2] = Range(f1, f2)
+		}
+		return func(s *Script) bool {
+			// Return true iff any range is true.  Note that we
+			// always evaluate every range to avoid confusing
+			// results because of statefulness.
+			m := false
+			for _, f := range fList {
+				if f(s) {
+					m = true
+				}
+			}
+			return m
+		}
+	}
+	if len(v)%2 == 1 {
+		// Single argument: Decide what to do based on its type.
+		switch x := v[0].(type) {
+		case PatternFunc:
+			// Already a PatternFunc: Return it unmodified.
+			return x
+		case string:
+			// String: Treat as a regular expression that matches
+			// against F[0].
+			return func(s *Script) bool {
+				r, err := s.compileRegexp(x)
+				if err != nil {
+					panic(err)
+				}
+				return r.MatchString(s.F(0).String())
+			}
+		case int:
+			// Integer: Match against NR.
+			return func(s *Script) bool {
+				return s.NR == x
+			}
+		case *regexp.Regexp:
+			// Regular expression: Convert to a string then,
+			// dynamically, back to a regular expression.  This
+			// enables dynamic toggling of case sensitivity.
+			xs := x.String()
+			return func(s *Script) bool {
+				r, err := s.compileRegexp(xs)
+				if err != nil {
+					panic(err)
+				}
+				return r.MatchString(s.F(0).String())
+			}
+		default:
+			panic(fmt.Sprintf("Auto does not accept arguments of type %T", x))
+		}
+	}
+	panic("Auto expects 0, 1, or an even number of arguments")
+}
+
 // AppendStmt appends a pattern-action pair to a Script.  If the pattern
 // function is nil, the action will be performed on every record.  If the
 // action function is nil, the record will be output verbatim to the standard

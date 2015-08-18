@@ -77,7 +77,7 @@ func Example_11() {
 //
 // ).
 func Example_12() {
-	s.AppendBeginAction(func(s *awk.Script) { s.SetFS(",[ \t]*|[ \t]+") })
+	s.Begin = func(s *awk.Script) { s.SetFS(",[ \t]*|[ \t]+") }
 	s.AppendStmt(nil, func(s *awk.Script) { fmt.Printf("%v %v\n", s.F(2), s.F(1)) })
 }
 
@@ -90,9 +90,9 @@ func Example_12() {
 func Example_13() {
 	sum := 0.0
 	s.AppendStmt(nil, func(s *awk.Script) { sum += s.F(1).Float64() })
-	s.AppendEndAction(func(s *awk.Script) {
+	s.End = func(s *awk.Script) {
 		fmt.Println("sum is", sum, "average is", sum/float64(s.NR))
-	})
+	}
 }
 
 // Write fields in reverse order, one per line (many lines out for each line
@@ -131,7 +131,7 @@ func ExampleScript_AppendStmt() {
 	s := awk.NewScript()
 	s.AppendStmt(func(s *awk.Script) bool { return s.NF == 2 && s.F(1).StrEqual("Total:") },
 		func(s *awk.Script) { grandTotal += s.F(2).Float64() })
-	s.AppendEndAction(func(s *awk.Script) { fmt.Printf("The grand total is %.2f\n", grandTotal) })
+	s.End = func(s *awk.Script) { fmt.Printf("The grand total is %.2f\n", grandTotal) }
 	s.Run(os.Stdin)
 }
 
@@ -163,10 +163,10 @@ func ExampleRange() {
 func ExampleBegin() {
 	var data []string
 	s := awk.NewScript()
-	s.AppendBeginAction(func(s *awk.Script) {
+	s.Begin = func(s *awk.Script) {
 		s.SetFS(",")
 		data = make([]string, 0)
-	})
+	}
 	s.AppendStmt(nil, func(s *awk.Script) { data = append(data, s.F(1).String()) })
 	s.Run(os.Stdin)
 }

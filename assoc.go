@@ -148,7 +148,7 @@ func (va *ValueArray) Delete(args ...interface{}) {
 // Keys returns all keys in the associative array in undefined order.
 func (va *ValueArray) Keys() []*Value {
 	keys := make([]*Value, 0, len(va.data))
-	for kstr, _ := range va.data {
+	for kstr := range va.data {
 		keys = append(keys, va.script.NewValue(kstr))
 	}
 	return keys

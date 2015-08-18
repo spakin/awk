@@ -38,6 +38,8 @@ const (
 type Script struct {
 	State   interface{} // Arbitrary, user-supplied data
 	Output  io.Writer   // Output stream (defaults to os.Stdout)
+	Begin   ActionFunc  // Action to perform before any input is read
+	End     ActionFunc  // Action to perform after all input is read
 	ConvFmt string      // Conversion format for numbers, "%.6g" by default
 	SubSep  string      // Separator for simulated multidimensional arrays
 	NR      int         // Number of input records seen so far
@@ -54,9 +56,7 @@ type Script struct {
 	ors         string                    // Output record separator, newline by default
 	ofs         string                    // Output field separator, space by default
 	ignCase     bool                      // true: REs are case-insensitive; false: case-sensitive
-	beginRules  []ActionFunc              // List of actions to execute before any records are read
 	rules       []statement               // List of pattern-action pairs to execute
-	endRules    []ActionFunc              // List of actions to execute after all records are read
 	fields      []*Value                  // Fields in the current record; fields[0] is the entire record
 	regexps     map[string]*regexp.Regexp // Map from a regular-expression string to a compiled regular expression
 	rsScanner   *bufio.Scanner            // Scanner associated with RS
@@ -68,23 +68,21 @@ type Script struct {
 // NewScript initializes a new Script with default values.
 func NewScript() *Script {
 	return &Script{
-		Output:     os.Stdout,
-		ConvFmt:    "%.6g",
-		SubSep:     "\034",
-		NR:         0,
-		NF:         0,
-		nf0:        0,
-		rs:         "\n",
-		fs:         " ",
-		ors:        "\n",
-		ofs:        " ",
-		ignCase:    false,
-		beginRules: make([]ActionFunc, 0, 10),
-		rules:      make([]statement, 0, 10),
-		endRules:   make([]ActionFunc, 0, 10),
-		fields:     make([]*Value, 0),
-		regexps:    make(map[string]*regexp.Regexp, 10),
-		state:      notRunning,
+		Output:  os.Stdout,
+		ConvFmt: "%.6g",
+		SubSep:  "\034",
+		NR:      0,
+		NF:      0,
+		nf0:     0,
+		rs:      "\n",
+		fs:      " ",
+		ors:     "\n",
+		ofs:     " ",
+		ignCase: false,
+		rules:   make([]statement, 0, 10),
+		fields:  make([]*Value, 0),
+		regexps: make(map[string]*regexp.Regexp, 10),
+		state:   notRunning,
 	}
 }
 
@@ -325,40 +323,6 @@ func Range(p1, p2 PatternFunc) PatternFunc {
 			return inRange
 		}
 	}
-}
-
-// AppendBeginAction appends an action to a script that will execute before any
-// records are read.
-func (s *Script) AppendBeginAction(a ActionFunc) {
-	// Panic if we were called on a running script.
-	if s.state != notRunning {
-		panic("AppendBeginAction was called from a running script")
-	}
-
-	// Panic if the action is nil.
-	if a == nil {
-		panic("AppendBeginAction was passed a nil action")
-	}
-
-	// Append the action to the list of begin actions.
-	s.beginRules = append(s.beginRules, a)
-}
-
-// AppendEndAction appends an action to a script that will execute after all
-// records are read.
-func (s *Script) AppendEndAction(a ActionFunc) {
-	// Panic if we were called on a running script.
-	if s.state != notRunning {
-		panic("AppendEndAction was called from a running script")
-	}
-
-	// Panic if the action is nil.
-	if a == nil {
-		panic("AppendEndAction was passed a nil action")
-	}
-
-	// Append the action to the list of end actions.
-	s.endRules = append(s.endRules, a)
 }
 
 // AppendStmt appends a pattern-action pair to a Script.  If the pattern
@@ -711,10 +675,10 @@ func (s *Script) Run(r io.Reader) error {
 	s.NF = 0
 	s.NR = 0
 
-	// Process all Begin actions.
-	s.state = atBegin
-	for _, a := range s.beginRules {
-		a(s)
+	// Process the Begin action, if any.
+	if s.Begin != nil {
+		s.state = atBegin
+		s.Begin(s)
 	}
 
 	// Create (and store) a new scanner based on the record terminator.
@@ -752,10 +716,10 @@ func (s *Script) Run(r io.Reader) error {
 		}
 	}
 
-	// Process all End actions
-	s.state = atEnd
-	for _, a := range s.endRules {
-		a(s)
+	// Process the End action, if any.
+	if s.End != nil {
+		s.state = atEnd
+		s.End(s)
 	}
 	s.state = notRunning
 	return nil

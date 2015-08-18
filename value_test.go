@@ -133,7 +133,7 @@ func TestMatch(t *testing.T) {
 	v := scr.NewValue("Mississippi")
 	in := []string{"p*", "[is]+", "Miss", "hippie", "ippi"}
 	out := []bool{true, true, true, false, true}
-	for _ = range [2]struct{}{} {
+	for range [2]struct{}{} {
 		for idx, n := range in {
 			m := v.Match(n)
 			if m != out[idx] {

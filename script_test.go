@@ -231,8 +231,8 @@ func TestSplitFieldREPat(t *testing.T) {
 func TestBeginEnd(t *testing.T) {
 	scr := NewScript()
 	val := 123
-	scr.AppendBeginAction(func(s *Script) { val *= 10 })
-	scr.AppendEndAction(func(s *Script) { val += 4 })
+	scr.Begin = func(s *Script) { val *= 10 }
+	scr.End = func(s *Script) { val += 4 }
 	err := scr.Run(strings.NewReader("dummy data"))
 	if err != nil {
 		t.Fatal(err)
@@ -363,7 +363,7 @@ func TestRecordBlankLines(t *testing.T) {
 func TestExit(t *testing.T) {
 	scr := NewScript()
 	sum := 0
-	scr.AppendBeginAction(func(s *Script) { s.IgnoreCase(true) })
+	scr.Begin = func(s *Script) { s.IgnoreCase(true) }
 	scr.AppendStmt(nil, func(s *Script) { sum += s.F(1).Int() })
 	scr.AppendStmt(func(s *Script) bool { return s.F(1).StrEqual("stop") },
 		func(s *Script) { s.Exit() })
@@ -418,7 +418,7 @@ func TestRecordRange(t *testing.T) {
 func TestSplitRecordRE(t *testing.T) {
 	scr := NewScript()
 	pluses := 0
-	scr.AppendBeginAction(func(s *Script) { s.SetRS(`\++`) })
+	scr.Begin = func(s *Script) { s.SetRS(`\++`) }
 	scr.AppendStmt(nil, func(s *Script) { pluses += len(s.RT) })
 	err := scr.Run(strings.NewReader("a++++++a++a++++a+++a+++++a+"))
 	if err != nil {
@@ -516,7 +516,7 @@ func TestFieldCreation0(t *testing.T) {
 	desiredOutput := "spam,egg,spam,spam,bacon,spam,,,,,sausage"
 	var output string
 	scr := NewScript()
-	scr.AppendBeginAction(func(s *Script) { scr.SetOFS(",") })
+	scr.Begin = func(s *Script) { scr.SetOFS(",") }
 	scr.AppendStmt(nil, func(s *Script) {
 		scr.SetF(scr.NF+5, scr.NewValue("sausage"))
 		output = scr.F(0).String()
@@ -539,7 +539,7 @@ func TestFieldModification0(t *testing.T) {
 	desiredOutput := "spam,egg,sausage,spam,bacon,spam"
 	var output string
 	scr := NewScript()
-	scr.AppendBeginAction(func(s *Script) { scr.SetOFS(",") })
+	scr.Begin = func(s *Script) { scr.SetOFS(",") }
 	scr.AppendStmt(nil, func(s *Script) {
 		scr.SetF(3, scr.NewValue("sausage"))
 		output = scr.F(0).String()

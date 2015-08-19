@@ -2,6 +2,9 @@
 
 Package awk implements AWK-style processing of input streams.
 
+
+Introduction
+
 AWK is a pattern scanning and processing language defined as part of the POSIX
 1003.1 standard
 (http://pubs.opengroup.org/onlinepubs/9699919799/utilities/awk.html) and
@@ -77,6 +80,9 @@ close to it.  The AppendStmt method defines a script in terms of patterns and
 actions exactly as in the AWK program.  The Run method then runs the script on
 an input stream, which can be any io.Reader.
 
+
+Features
+
 The awk package can be considered a shallow EDSL (embedded domain-specific
 language) for Go that facilitates text processing.  The package handles the
 reading and parsing of the input file and provides a few AWK-like data types to
@@ -113,6 +119,31 @@ and null strings (implying single-character fields)
 processing (exit)
 
 • maintenance of regular-expression status variables (RT, RSTART, and RLENGTH)
+
+
+Usage
+
+Basic usage of the awk package comprises three steps:
+
+1. Script allocation (awk.NewScript)
+
+2. Script definition (Script.AppendStmt)
+
+3. Script execution (Script.Run)
+
+In Step 2, Script.AppendStmt is called once for each pattern/action
+pair that is to be appended to the script.  The same script can be
+applied to multiple input streams by re-executing Step 3 (even
+concurrently, if desired).  Actions to be executed on every run of
+Step 3 can be supplied by assigning the script's Begin and End fields.
+The Begin action is typically used to initialize script state by
+calling methods such as SetRS and SetFS and assigning user-defined
+data to the script's State field (what would be global variables in
+AWK).  The End action is typically used to store or report final
+results.
+
+
+Examples
 
 A number of examples ported from the POSIX 1003.1 standard document
 (http://pubs.opengroup.org/onlinepubs/9699919799/utilities/awk.html) are

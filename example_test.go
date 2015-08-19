@@ -215,3 +215,10 @@ func ExampleScript_FFloat64s() {
 	})
 	s.Run(os.Stdin)
 }
+
+// Output the fifth line of the input stream.
+func ExampleAuto() {
+	s := NewScript()
+	s.AppendStmt(Auto(5), nil)
+	s.Run(os.Stdin)
+}

@@ -216,9 +216,17 @@ func ExampleScript_FFloat64s() {
 	s.Run(os.Stdin)
 }
 
-// Output the fifth line of the input stream.
-func ExampleAuto() {
-	s := NewScript()
-	s.AppendStmt(Auto(5), nil)
+// Delete the fifth line of the input stream but output all other lines.
+func ExampleAuto_int() {
+	s := awk.NewScript()
+	s.AppendStmt(awk.Auto(5), func(s *awk.Script) { s.Next() })
+	s.AppendStmt(nil, nil)
+	s.Run(os.Stdin)
+}
+
+// Output only those lines containing the string, "fnord".
+func ExampleAuto_string() {
+	s := awk.NewScript()
+	s.AppendStmt(awk.Auto("fnord"), nil)
 	s.Run(os.Stdin)
 }

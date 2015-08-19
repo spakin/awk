@@ -159,9 +159,9 @@ func (v *Value) String() string {
 	return v.sval
 }
 
-// Match says whether a given regular expression matches the Value.  If the
-// associated script set IgnoreCase(true), the match is tested in a
-// case-insensitive manner.
+// Match says whether a given regular expression, provided as a string, matches
+// the Value.  If the associated script set IgnoreCase(true), the match is
+// tested in a case-insensitive manner.
 func (v *Value) Match(expr string) bool {
 	// Compile the regular expression.
 	re, err := v.script.compileRegexp(expr)
@@ -184,28 +184,28 @@ func (v *Value) Match(expr string) bool {
 
 // StrEqual says whether a Value, treated as a string, has the same contents as
 // a given Value, which can be provided either as a Value or as any type that
-// can be converted to a Value.  If the associated script set IgnoreCase(true),
-// the comparison is performed in a case-insensitive manner.
-func (v1 *Value) StrEqual(v2 interface{}) bool {
+// can be converted to a Value.  If the associated script called
+// IgnoreCase(true), the comparison is performed in a case-insensitive manner.
+func (v *Value) StrEqual(v2 interface{}) bool {
 	switch v2 := v2.(type) {
 	case *Value:
-		if v1.script.ignCase {
-			return strings.EqualFold(v1.String(), v2.String())
+		if v.script.ignCase {
+			return strings.EqualFold(v.String(), v2.String())
 		} else {
-			return v1.String() == v2.String()
+			return v.String() == v2.String()
 		}
 	case string:
-		if v1.script.ignCase {
-			return strings.EqualFold(v1.String(), v2)
+		if v.script.ignCase {
+			return strings.EqualFold(v.String(), v2)
 		} else {
-			return v1.String() == v2
+			return v.String() == v2
 		}
 	default:
-		v2Val := v1.script.NewValue(v2)
-		if v1.script.ignCase {
-			return strings.EqualFold(v1.String(), v2Val.String())
+		v2Val := v.script.NewValue(v2)
+		if v.script.ignCase {
+			return strings.EqualFold(v.String(), v2Val.String())
 		} else {
-			return v1.String() == v2Val.String()
+			return v.String() == v2Val.String()
 		}
 	}
 }

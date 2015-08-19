@@ -38,7 +38,7 @@ const (
 	stopScript                  // Abort the entire script
 )
 
-// A Script contains all the internal state for an AWK-like script.
+// A Script encapsulates all of the internal state for an AWK-like script.
 type Script struct {
 	State   interface{} // Arbitrary, user-supplied data
 	Output  io.Writer   // Output stream (defaults to os.Stdout)
@@ -337,10 +337,19 @@ func Range(p1, p2 PatternFunc) PatternFunc {
 // Auto provides a simplified mechanism for creating various common-case
 // PatternFunc functions.  It accepts zero, one, or an even number of
 // arguments.  If given no arguments, it matches every record.  If given a
-// single argument, its behavior depends on that argument's type: a
-// Script.PatternFunc is returned as is; a *regexp.Regexp matches against the
-// entire record; a string is treated as a regular expression and behaves
-// likewise; an int matches against NR; any other type causes a run-time panic.
+// single argument, its behavior depends on that argument's type:
+// 
+// • A Script.PatternFunc is returned as is.
+//
+// • A *regexp.Regexp returns a function that matches that regular expression
+// against the entire record.
+//
+// • A string is treated as a regular expression and behaves likewise.
+//
+// • An int returns a function that matches that int against NR.
+//
+// • Any other type causes a run-time panic.
+//
 // If given an even number of arguments, pairs of arguments are treated as
 // ranges (cf. the Range function).  The PatternFunc returns true if the record
 // lies within any of the ranges.

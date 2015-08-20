@@ -96,6 +96,20 @@ func (s *Script) abortScript(format string, a ...interface{}) {
 	panic(scriptAborter(fmt.Errorf(format, a...)))
 }
 
+// Return a copy of a Script.
+func (s *Script) Copy() *Script {
+	sc := *s
+	sc.rules = make([]statement, len(s.rules))
+	copy(sc.rules, s.rules)
+	sc.fields = make([]*Value, len(s.fields))
+	copy(sc.fields, s.fields)
+	sc.regexps = make(map[string]*regexp.Regexp, len(s.regexps))
+	for k, v := range s.regexps {
+		sc.regexps[k] = v
+	}
+	return &sc
+}
+
 // SetRS sets the input record separator (really, a record terminator).  It is
 // invalid to call SetRS after the first record is read.  (It is acceptable to
 // call SetRS from a Begin action, though.)  As in AWK, if the record separator
@@ -338,7 +352,7 @@ func Range(p1, p2 PatternFunc) PatternFunc {
 // PatternFunc functions.  It accepts zero, one, or an even number of
 // arguments.  If given no arguments, it matches every record.  If given a
 // single argument, its behavior depends on that argument's type:
-// 
+//
 // • A Script.PatternFunc is returned as is.
 //
 // • A *regexp.Regexp returns a function that matches that regular expression

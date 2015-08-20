@@ -109,12 +109,12 @@ three steps:
 
 In Step 2, AppendStmt is called once for each pattern/action pair that is to be
 appended to the script.  The same script can be applied to multiple input
-streams by re-executing Step 3 (even concurrently, if desired).  Actions to be
-executed on every run of Step 3 can be supplied by assigning the script's Begin
-and End fields.  The Begin action is typically used to initialize script state
-by calling methods such as SetRS and SetFS and assigning user-defined data to
-the script's State field (what would be global variables in AWK).  The End
-action is typically used to store or report final results.
+streams by re-executing Step 3.  Actions to be executed on every run of Step 3
+can be supplied by assigning the script's Begin and End fields.  The Begin
+action is typically used to initialize script state by calling methods such as
+SetRS and SetFS and assigning user-defined data to the script's State field
+(what would be global variables in AWK).  The End action is typically used to
+store or report final results.
 
 To mimic AWK's dynamic type system. the awk package provides the Value and
 ValueArray types.  Value represents a scalar that can be coerced without error

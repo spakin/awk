@@ -89,13 +89,13 @@ func TestFloat64ToString(t *testing.T) {
 // TestStringToInt converts various strings to Values then to ints.
 func TestStringToInt(t *testing.T) {
 	scr := NewScript()
-	in := []string{"0", "-123", "123", "-456", "456", "9223372036854775807", "-9223372036854775808", "123", "Text999", "321_go"}
-	out := []int{0, -123, 123, -456, 456, 9223372036854775807, -9223372036854775808, 123, 0, 321}
+	in := []string{"0", "-123", "123", "-456", "456", "9223372036854775807", "-9223372036854775808", "123", "Text999", "321_go", "  789  ", "0x111", "0222"}
+	out := []int{0, -123, 123, -456, 456, 9223372036854775807, -9223372036854775808, 123, 0, 321, 789, 0, 222}
 	for idx, n := range in {
 		v := scr.NewValue(n)
 		i := v.Int()
 		if i != out[idx] {
-			t.Fatalf("Expected %d but received %d", out[idx], i)
+			t.Fatalf("Expected %d for %q but received %d", out[idx], n, i)
 		}
 	}
 }
@@ -103,13 +103,13 @@ func TestStringToInt(t *testing.T) {
 // TestStringToFloat64 converts various strings to Values then to float64s.
 func TestStringToFloat64(t *testing.T) {
 	scr := NewScript()
-	in := []string{"0", "-123", "123", "-456.7", "456.7", "17.9769e+307", "-17.9769e+307", "123", "-456.4", "456.4", "Text99.99", "99.99e+1000"}
-	out := []float64{0, -123, 123, -456.7, 456.7, 1.79769e+308, -1.79769e+308, 123, -456.4, 456.4, 0, math.Inf(1)}
+	in := []string{"0", "-123", "123", "-456.7", "456.7", "17.9769e+307", "-17.9769e+307", "123", "-456.4", "456.4", "Text99.99", "99.99e+1000", "  111.111  ", "0x222", "0333", "321_go", "1.2e3e4"}
+	out := []float64{0, -123, 123, -456.7, 456.7, 1.79769e+308, -1.79769e+308, 123, -456.4, 456.4, 0, math.Inf(1), 111.111, 0.0, 333.0, 321.0, 1.2e3}
 	for idx, n := range in {
 		v := scr.NewValue(n)
 		f := v.Float64()
 		if f != out[idx] {
-			t.Fatalf("Expected %.4g but received %.4g", out[idx], f)
+			t.Fatalf("Expected %.4g for %q but received %.4g", out[idx], n, f)
 		}
 	}
 }

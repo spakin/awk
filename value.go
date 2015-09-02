@@ -5,9 +5,9 @@ package awk
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
-	"unicode/utf8"
 )
 
 const convFmt = "%.6g"
@@ -101,6 +101,9 @@ func (s *Script) NewValue(v interface{}) *Value {
 	return val
 }
 
+// matchInt matches a base-ten integer.
+var matchInt = regexp.MustCompile(`^\s*([-+]?\d+)`)
+
 // Int converts a Value to an int.
 func (v *Value) Int() int {
 	switch {
@@ -109,27 +112,20 @@ func (v *Value) Int() int {
 		v.ival = int(v.fval)
 		v.ival_ok = true
 	case v.sval_ok:
-		// Keep trimming characters from the end of the string until it
-		// parses.
+		// Perform a best-effort conversion from string to int.
+		strs := matchInt.FindStringSubmatch(v.sval)
 		var i64 int64
-		str := v.sval
-		for len(str) > 0 {
-			var err error
-			i64, err = strconv.ParseInt(str, 10, 0)
-			if err == nil {
-				break
-			}
-			r, size := utf8.DecodeLastRuneInString(str)
-			if r == utf8.RuneError {
-				break
-			}
-			str = str[:len(str)-size]
+		if len(strs) >= 2 {
+			i64, _ = strconv.ParseInt(strs[1], 10, 0)
 		}
 		v.ival = int(i64)
 		v.ival_ok = true
 	}
 	return v.ival
 }
+
+// matchFloat matches a base-ten floating-point number.
+var matchFloat = regexp.MustCompile(`^\s*([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[Ee][-+]?\d+)?)`)
 
 // Float64 converts a Value to a float64.
 func (v *Value) Float64() float64 {
@@ -139,7 +135,12 @@ func (v *Value) Float64() float64 {
 		v.fval = float64(v.ival)
 		v.fval_ok = true
 	case v.sval_ok:
-		v.fval, _ = strconv.ParseFloat(v.sval, 64)
+		// Perform a best-effort conversion from string to float64.
+		v.fval = 0.0
+		strs := matchFloat.FindStringSubmatch(v.sval)
+		if len(strs) >= 2 {
+			v.fval, _ = strconv.ParseFloat(strs[1], 64)
+		}
 		v.fval_ok = true
 	}
 	return v.fval

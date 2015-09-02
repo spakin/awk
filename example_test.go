@@ -39,7 +39,7 @@ func Example_05() {
 	}, nil)
 }
 
-// Write any line in which the second field contains a backslash (AWK: $2
+// Write any line in which the second field contains a backslash (AWK: $2 ~
 // /\\/).
 func Example_06() {
 	s.AppendStmt(func(s *awk.Script) bool { return s.F(2).Match(`\\`) }, nil)
@@ -66,7 +66,7 @@ func Example_10() {
 
 // Write the first two fields in opposite order (AWK: {print $2, $1}).
 func Example_11() {
-	s.AppendStmt(nil, func(s *awk.Script) { fmt.Printf("%v %v\n", s.F(2), s.F(1)) })
+	s.AppendStmt(nil, func(s *awk.Script) { s.Println(s.F(2), s.F(1)) })
 }
 
 // Do the same as Example 11, with input fields separated by a comma, space and
@@ -78,7 +78,7 @@ func Example_11() {
 // ).
 func Example_12() {
 	s.Begin = func(s *awk.Script) { s.SetFS(",[ \t]*|[ \t]+") }
-	s.AppendStmt(nil, func(s *awk.Script) { fmt.Printf("%v %v\n", s.F(2), s.F(1)) })
+	s.AppendStmt(nil, func(s *awk.Script) { s.Println(s.F(2), s.F(1)) })
 }
 
 // Add up the first column and print the sum and average (AWK:
@@ -88,10 +88,11 @@ func Example_12() {
 //
 // ).
 func Example_13() {
-	sum := 0.0
-	s.AppendStmt(nil, func(s *awk.Script) { sum += s.F(1).Float64() })
+	s.Begin = func(s *awk.Script) { s.State = 0.0 }
+	s.AppendStmt(nil, func(s *awk.Script) { s.State = s.State.(float64) + s.F(1).Float64() })
 	s.End = func(s *awk.Script) {
-		fmt.Println("sum is", sum, "average is", sum/float64(s.NR))
+		sum := s.State.(float64)
+		s.Println("sum is", sum, "average is", sum/float64(s.NR))
 	}
 }
 
@@ -100,38 +101,46 @@ func Example_13() {
 func Example_14() {
 	s.AppendStmt(nil, func(s *awk.Script) {
 		for i := s.NF; i > 0; i-- {
-			fmt.Println(s.F(i))
+			s.Println(s.F(i))
 		}
 	})
 }
 
-// Write all lines between occurrences of the strings start and stop (AWK:
-// /start/, /stop/).
-func Example_15() {
+// Write all lines between occurrences of the strings "start" and "stop" (AWK:
+// /start/, /stop/).  This version of the Go code uses awk.Range to combine
+// begin and end functions into a match range.
+func Example_15a() {
 	s.AppendStmt(awk.Range(func(s *awk.Script) bool { return s.F(1).Match("start") },
 		func(s *awk.Script) bool { return s.F(1).Match("stop") }),
 		nil)
 }
 
+// Write all lines between occurrences of the strings "start" and "stop" (AWK:
+// /start/, /stop/).  This version of the Go code uses awk.Auto to define the
+// begin and end conditions as simple regular-expression matches.
+func Example_15b() {
+	s.AppendStmt(awk.Auto("start", "stop"), nil)
+}
+
 // Write all lines whose first field is different from the previous line's
 // first field (AWK: $1 != prev {print; prev = $1}).
 func Example_16() {
-	prev := s.NewValue("")
-	s.AppendStmt(func(s *awk.Script) bool { return !s.F(1).StrEqual(prev) },
+	s.State = s.NewValue("")
+	s.AppendStmt(func(s *awk.Script) bool { return !s.F(1).StrEqual(s.State) },
 		func(s *awk.Script) {
-			fmt.Println(s.F(0))
-			prev = s.F(1)
+			s.Println()
+			s.State = s.F(1)
 		})
 }
 
 // For all rows of the form "Total: <number>", accumulate <number>.  Once all
 // rows have been read, output the grand total.
 func ExampleScript_AppendStmt() {
-	grandTotal := 0.0
 	s := awk.NewScript()
+	s.State = 0.0
 	s.AppendStmt(func(s *awk.Script) bool { return s.NF == 2 && s.F(1).StrEqual("Total:") },
-		func(s *awk.Script) { grandTotal += s.F(2).Float64() })
-	s.End = func(s *awk.Script) { fmt.Printf("The grand total is %.2f\n", grandTotal) }
+		func(s *awk.Script) { s.State = s.State.(float64) + s.F(2).Float64() })
+	s.End = func(s *awk.Script) { fmt.Printf("The grand total is %.2f\n", s.State.(float64)) }
 	s.Run(os.Stdin)
 }
 

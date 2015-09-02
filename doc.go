@@ -94,12 +94,12 @@ sequence of pattern/action pairs.  Each pattern that matches a given line
 causes the corresponding action to be performed.  AWK programs tend to be terse
 because AWK implicitly reads the input file, splits it into records (default:
 newline-terminated lines), and splits each record into fields (default:
-whitespace-separated columns), saving the programming from having to express
+whitespace-separated columns), saving the programmer from having to express
 such operations explicitly.  Furthermore, AWK provides a default pattern, which
 matches every record, and a default action, which outputs a record unmodified.
 
-The awk package attempts to mimic those semantics in Go.  Basic usage comprises
-three steps:
+The awk package attempts to mimic those semantics in Go.  Basic usage consists
+of three steps:
 
 1. Script allocation (awk.NewScript)
 
@@ -118,12 +118,12 @@ store or report final results.
 
 To mimic AWK's dynamic type system. the awk package provides the Value and
 ValueArray types.  Value represents a scalar that can be coerced without error
-to a string, int, or float64.  ValueArray represents an associative array that
-can even be multidimensional.
+to a string, an int, or a float64.  ValueArray represents a—possibly
+multidimensional—associative array of Values.
 
 Both patterns and actions can access the current record's fields via the
 script's F method, which takes a 1-based index and returns the corresponding
-field as a Value.  An index of 0 returns the entire record.
+field as a Value.  An index of 0 returns the entire record as a Value.
 
 
 Features
@@ -152,7 +152,7 @@ and null strings (implying single-character fields)
 
 • "weak typing" support
 
-• multi-dimensional associative arrays
+• multidimensional associative arrays
 
 • support for premature termination of record processing (next) and script
 processing (exit)

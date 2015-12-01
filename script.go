@@ -64,7 +64,7 @@ type Script struct {
 	fields      []*Value                  // Fields in the current record; fields[0] is the entire record
 	regexps     map[string]*regexp.Regexp // Map from a regular-expression string to a compiled regular expression
 	rsScanner   *bufio.Scanner            // Scanner associated with RS
-	input       *bufio.Reader             // Script input stream
+	input       io.Reader                 // Script input stream
 	state       parseState                // What we're currently parsing
 	stop        stopState                 // What we should stop doing
 }
@@ -792,14 +792,8 @@ func (s *Script) GetLine(r io.Reader) (*Value, error) {
 	// state.
 	sc := s.Copy()
 
-	// Wrap a buffered reader around the given reader.
-	rb, ok := r.(*bufio.Reader)
-	if !ok {
-		rb = bufio.NewReader(r)
-	}
-
 	// Create (and store) a new scanner based on the record terminator.
-	sc.input = rb
+	sc.input = r
 	sc.rsScanner = bufio.NewScanner(sc.input)
 	sc.rsScanner.Split(sc.makeRecordSplitter())
 
@@ -827,14 +821,8 @@ func (s *Script) Run(r io.Reader) (err error) {
 		}
 	}()
 
-	// Wrap a buffered reader around the given reader.
-	rb, ok := r.(*bufio.Reader)
-	if !ok {
-		rb = bufio.NewReader(r)
-	}
-	s.input = rb
-
 	// Reinitialize most of our state.
+	s.input = r
 	s.ConvFmt = "%.6g"
 	s.NF = 0
 	s.NR = 0

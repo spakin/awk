@@ -5,6 +5,7 @@ package awk
 import (
 	"bufio"
 	"bytes"
+	"io"
 	"regexp"
 	"sort"
 	"strings"
@@ -697,5 +698,89 @@ func TestCatchSetRSError(t *testing.T) {
 	}
 	if err.Error() != expected {
 		t.Fatalf("Expected error %q, but received error %q", expected, err.Error())
+	}
+}
+
+// TestGetLineSelf tests that GetLine can read the next record from
+// the current input stream.
+func TestGetLineSelf(t *testing.T) {
+	// Define a script.
+	var output []string
+	scr := NewScript()
+	scr.Begin = func(s *Script) { output = nil }
+	scr.AppendStmt(Auto("skip"), func(s *Script) {
+		nSkip := s.F(2).Int()
+		for i := 0; i < nSkip; i++ {
+			_, err := s.GetLine(nil)
+			if err != nil && err != io.EOF {
+				t.Fatal(err)
+			}
+		}
+		s.Next()
+	})
+	scr.AppendStmt(nil, func(s *Script) {
+		output = append(output, s.F(0).String())
+	})
+
+	// Define our input and desired output.
+	input := []string{
+		"apple",
+		"boy",
+		"skip 1",
+		"cat",
+		"skip 1",
+		"dog",
+		"east",
+		"five",
+		"skip 2",
+		"goat",
+		"house",
+		"skip 1",
+		"ice cream",
+		"July",
+		"skip 1",
+		"skip 1",
+		"king",
+		"lemon",
+	}
+	desiredOutput := []string{
+		"apple",
+		"boy",
+		"east",
+		"five",
+		"July",
+		"king",
+		"lemon",
+	}
+
+	// Run the script and validate the output.
+	err := scr.Run(strings.NewReader(strings.Join(input, "\n")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(output) != len(desiredOutput) {
+		t.Fatalf("Expected %v (length %d) but received %v (length %d)", desiredOutput, len(desiredOutput), output, len(output))
+	}
+	for i, o := range desiredOutput {
+		if output[i] != o {
+			t.Fatalf("Expected %v but received %v", desiredOutput, output)
+		}
+	}
+
+	// Repeat the test, but attempt to skip past the end of the file.  The
+	// error check after the GetLine call is supposed to ignore EOF, not
+	// fail.
+	input = append(input, "skip 5")
+	err = scr.Run(strings.NewReader(strings.Join(input, "\n")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(output) != len(desiredOutput) {
+		t.Fatalf("Expected %v (length %d) but received %v (length %d)", desiredOutput, len(desiredOutput), output, len(output))
+	}
+	for i, o := range desiredOutput {
+		if output[i] != o {
+			t.Fatalf("Expected %v but received %v", desiredOutput, output)
+		}
 	}
 }

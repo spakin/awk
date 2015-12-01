@@ -750,8 +750,9 @@ func (s *Script) readRecord() (string, error) {
 	}
 }
 
-// Split a record into fields.  Store the fields in the Script struct's F field
-// and update NF.  As in real AWK, field 0 is the entire record.
+// splitRecord splits a record into fields.  It stores the fields in the Script
+// struct's F field and update NF.  As in real AWK, field 0 is the entire
+// record.
 func (s *Script) splitRecord(rec string) error {
 	fsScanner := bufio.NewScanner(strings.NewReader(rec))
 	fsScanner.Split(s.makeFieldSplitter())
@@ -769,8 +770,50 @@ func (s *Script) splitRecord(rec string) error {
 	return nil
 }
 
-// Execute a script against a given input stream.  It is perfectly valid to run
-// the same script on multiple input streams.
+// GetLine reads the next record from an input stream and returns it.  If the
+// argument to GetLine is nil, GetLine reads from the current input stream and
+// increments NR.  Otherwise, it reads from the given io.Reader and does not
+// increment NR.  Use SetF(0, GetLine(...)) to perform the equivalent of AWK's
+// getline with no variable argument.
+func (s *Script) GetLine(r io.Reader) (*Value, error) {
+	// Handle the simpler case of a nil argument (to read from the current
+	// input stream).
+	if r == nil {
+		s.stop = dontStop
+		rec, err := s.readRecord()
+		if err != nil {
+			return nil, err
+		}
+		s.NR++
+		return s.NewValue(rec), nil
+	}
+
+	// Copy the given script so we don't alter any of the original script's
+	// state.
+	sc := s.Copy()
+
+	// Wrap a buffered reader around the given reader.
+	rb, ok := r.(*bufio.Reader)
+	if !ok {
+		rb = bufio.NewReader(r)
+	}
+
+	// Create (and store) a new scanner based on the record terminator.
+	sc.input = rb
+	sc.rsScanner = bufio.NewScanner(sc.input)
+	sc.rsScanner.Split(sc.makeRecordSplitter())
+
+	// Read a record from the buffered writer.
+	sc.stop = dontStop
+	rec, err := sc.readRecord()
+	if err != nil {
+		return nil, err
+	}
+	return sc.NewValue(rec), nil
+}
+
+// Run executes a script against a given input stream.  It is perfectly valid
+// to run the same script on multiple input streams.
 func (s *Script) Run(r io.Reader) (err error) {
 	// Catch scriptAborter panics and return them as errors.  Re-throw all
 	// other panics.

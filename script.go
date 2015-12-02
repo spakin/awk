@@ -52,41 +52,43 @@ type Script struct {
 	RStart  int         // 1-based index of the previous regexp match (Value.Match)
 	RLength int         // Length of the previous regexp match (Value.Match)
 
-	nf0         int                       // Value of NF for which F(0) was computed
-	rs          string                    // Input record separator, newline by default
-	fs          string                    // Input field separator, space by default
-	fieldWidths []int                     // Fixed-width column sizes
-	fPat        string                    // Input field regular expression
-	ors         string                    // Output record separator, newline by default
-	ofs         string                    // Output field separator, space by default
-	ignCase     bool                      // true: REs are case-insensitive; false: case-sensitive
-	rules       []statement               // List of pattern-action pairs to execute
-	fields      []*Value                  // Fields in the current record; fields[0] is the entire record
-	regexps     map[string]*regexp.Regexp // Map from a regular-expression string to a compiled regular expression
-	rsScanner   *bufio.Scanner            // Scanner associated with RS
-	input       io.Reader                 // Script input stream
-	state       parseState                // What we're currently parsing
-	stop        stopState                 // What we should stop doing
+	nf0          int                       // Value of NF for which F(0) was computed
+	rs           string                    // Input record separator, newline by default
+	fs           string                    // Input field separator, space by default
+	fieldWidths  []int                     // Fixed-width column sizes
+	fPat         string                    // Input field regular expression
+	ors          string                    // Output record separator, newline by default
+	ofs          string                    // Output field separator, space by default
+	ignCase      bool                      // true: REs are case-insensitive; false: case-sensitive
+	rules        []statement               // List of pattern-action pairs to execute
+	fields       []*Value                  // Fields in the current record; fields[0] is the entire record
+	regexps      map[string]*regexp.Regexp // Map from a regular-expression string to a compiled regular expression
+	getlineState map[io.Reader]*Script     // Parsing state needed to invoke GetLine repeatedly on a given io.Reader
+	rsScanner    *bufio.Scanner            // Scanner associated with RS
+	input        io.Reader                 // Script input stream
+	state        parseState                // What we're currently parsing
+	stop         stopState                 // What we should stop doing
 }
 
 // NewScript initializes a new Script with default values.
 func NewScript() *Script {
 	return &Script{
-		Output:  os.Stdout,
-		ConvFmt: "%.6g",
-		SubSep:  "\034",
-		NR:      0,
-		NF:      0,
-		nf0:     0,
-		rs:      "\n",
-		fs:      " ",
-		ors:     "\n",
-		ofs:     " ",
-		ignCase: false,
-		rules:   make([]statement, 0, 10),
-		fields:  make([]*Value, 0),
-		regexps: make(map[string]*regexp.Regexp, 10),
-		state:   notRunning,
+		Output:       os.Stdout,
+		ConvFmt:      "%.6g",
+		SubSep:       "\034",
+		NR:           0,
+		NF:           0,
+		nf0:          0,
+		rs:           "\n",
+		fs:           " ",
+		ors:          "\n",
+		ofs:          " ",
+		ignCase:      false,
+		rules:        make([]statement, 0, 10),
+		fields:       make([]*Value, 0),
+		regexps:      make(map[string]*regexp.Regexp, 10),
+		getlineState: make(map[io.Reader]*Script),
+		state:        notRunning,
 	}
 }
 
@@ -101,11 +103,17 @@ func (s *Script) Copy() *Script {
 	sc := *s
 	sc.rules = make([]statement, len(s.rules))
 	copy(sc.rules, s.rules)
+	sc.fieldWidths = make([]int, len(s.fieldWidths))
+	copy(sc.fieldWidths, s.fieldWidths)
 	sc.fields = make([]*Value, len(s.fields))
 	copy(sc.fields, s.fields)
 	sc.regexps = make(map[string]*regexp.Regexp, len(s.regexps))
 	for k, v := range s.regexps {
 		sc.regexps[k] = v
+	}
+	sc.getlineState = make(map[io.Reader]*Script, len(s.getlineState))
+	for k, v := range s.getlineState {
+		sc.getlineState[k] = v
 	}
 	return &sc
 }
@@ -779,7 +787,6 @@ func (s *Script) GetLine(r io.Reader) (*Value, error) {
 	// Handle the simpler case of a nil argument (to read from the current
 	// input stream).
 	if r == nil {
-		s.stop = dontStop
 		rec, err := s.readRecord()
 		if err != nil {
 			return nil, err
@@ -788,17 +795,23 @@ func (s *Script) GetLine(r io.Reader) (*Value, error) {
 		return s.NewValue(rec), nil
 	}
 
-	// Copy the given script so we don't alter any of the original script's
-	// state.
-	sc := s.Copy()
+	// If we've seen this io.Reader before, reuse its parsing state.
+	// Otherwise, create a new Script for storing state.
+	sc := s.getlineState[r]
+	if sc == nil {
+		// Copy the given script so we don't alter any of the original
+		// script's state.
+		sc = s.Copy()
+		s.getlineState[r] = sc
 
-	// Create (and store) a new scanner based on the record terminator.
-	sc.input = r
-	sc.rsScanner = bufio.NewScanner(sc.input)
-	sc.rsScanner.Split(sc.makeRecordSplitter())
+		// Create (and store) a new scanner based on the record
+		// terminator.
+		sc.input = r
+		sc.rsScanner = bufio.NewScanner(sc.input)
+		sc.rsScanner.Split(sc.makeRecordSplitter())
+	}
 
-	// Read a record from the buffered writer.
-	sc.stop = dontStop
+	// Read a record from the given reader.
 	rec, err := sc.readRecord()
 	if err != nil {
 		return nil, err

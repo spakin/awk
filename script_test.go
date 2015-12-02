@@ -784,3 +784,75 @@ func TestGetLineSelf(t *testing.T) {
 		}
 	}
 }
+
+// TestGetLineOther tests that GetLine can read the next record from
+// an alternative input stream.
+func TestGetLineOther(t *testing.T) {
+	// Define our inputs and desired output.
+	input := []string{
+		"INSERT",
+		"Boston",
+		"Chicago",
+		"Denver",
+		"INSERT",
+		"Frank",
+		"INSERT",
+		"INSERT",
+		"Ida",
+		"John",
+		"King",
+		"INSERT",
+	}
+	inserts := []string{
+		"Adams",
+		"Easy",
+		"George",
+		"Henry",
+		"Lincoln",
+	}
+	desiredOutput := []string{
+		"Adams",
+		"Boston",
+		"Chicago",
+		"Denver",
+		"Easy",
+		"Frank",
+		"George",
+		"Henry",
+		"Ida",
+		"John",
+		"King",
+		"Lincoln",
+	}
+
+	// Define a script.
+	var output []string
+	insertsStrm := strings.NewReader(strings.Join(inserts, "\n"))
+	scr := NewScript()
+	scr.Begin = func(s *Script) { output = nil }
+	scr.AppendStmt(Auto("INSERT"), func(s *Script) {
+		ins, err := s.GetLine(insertsStrm)
+		if err != nil {
+			t.Fatal(err)
+		}
+		output = append(output, ins.String())
+		s.Next()
+	})
+	scr.AppendStmt(nil, func(s *Script) {
+		output = append(output, s.F(0).String())
+	})
+
+	// Run the script and validate the output.
+	err := scr.Run(strings.NewReader(strings.Join(input, "\n")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(output) != len(desiredOutput) {
+		t.Fatalf("Expected %v (length %d) but received %v (length %d)", desiredOutput, len(desiredOutput), output, len(output))
+	}
+	for i, o := range desiredOutput {
+		if output[i] != o {
+			t.Fatalf("Expected %v but received %v", desiredOutput, output)
+		}
+	}
+}

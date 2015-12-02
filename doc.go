@@ -134,15 +134,15 @@ the awk package:
 • the basic pattern/action structure of an AWK script, including BEGIN and END
 rules and range patterns
 
-• control over record separation (RS), including support for regular
-expressions and null strings (implying blank lines as separators)
+• control over record separation (RS), including regular expressions and null
+strings (implying blank lines as separators)
 
-• control over field separation (FS), including support for regular expressions
-and null strings (implying single-character fields)
+• control over field separation (FS), including regular expressions and null
+strings (implying single-character fields)
 
-• support for fixed-width fields (FIELDWIDTHS)
+• fixed-width fields (FIELDWIDTHS)
 
-• support for fields defined by a regular expression (FPAT)
+• fields defined by a regular expression (FPAT)
 
 • control over case-sensitive vs. case-insensitive comparisons (IGNORECASE)
 
@@ -150,12 +150,14 @@ and null strings (implying single-character fields)
 
 • automatic enumeration of records (NR) and fields (NR)
 
-• "weak typing" support
+• "weak typing"
 
 • multidimensional associative arrays
 
-• support for premature termination of record processing (next) and script
-processing (exit)
+• premature termination of record processing (next) and script processing (exit)
+
+• explicit record reading (getline) from either the current stream or
+a specified stream
 
 • maintenance of regular-expression status variables (RT, RSTART, and RLENGTH)
 

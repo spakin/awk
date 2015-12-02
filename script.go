@@ -781,8 +781,8 @@ func (s *Script) splitRecord(rec string) error {
 // GetLine reads the next record from an input stream and returns it.  If the
 // argument to GetLine is nil, GetLine reads from the current input stream and
 // increments NR.  Otherwise, it reads from the given io.Reader and does not
-// increment NR.  Use SetF(0, GetLine(...)) to perform the equivalent of AWK's
-// getline with no variable argument.
+// increment NR.  Call SetF(0, ...) on the Value returned by GetLine to perform
+// the equivalent of AWK's getline with no variable argument.
 func (s *Script) GetLine(r io.Reader) (*Value, error) {
 	// Handle the simpler case of a nil argument (to read from the current
 	// input stream).

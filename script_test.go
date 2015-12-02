@@ -856,3 +856,41 @@ func TestGetLineOther(t *testing.T) {
 		}
 	}
 }
+
+// TestGetLineSetF tests that GetLine + SetF can replace the current input line.
+func TestGetLineSetF(t *testing.T) {
+	// Define a script.
+	scr := NewScript()
+	scr.AppendStmt(nil, func(s *Script) {
+		// Validate the current line.
+		for i := 1; i <= 3; i++ {
+			if s.F(i).Int() != (s.NR-1)*3+i {
+				t.Fatalf("Expected %d but received %d", (s.NR-1)*3+i, s.F(i).Int())
+			}
+		}
+
+		// Read and validate the next line.
+		line, err := s.GetLine(nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		s.SetF(0, line)
+		for i := 1; i <= 3; i++ {
+			if s.F(i).Int() != (s.NR-1)*3+i {
+				t.Fatalf("Expected %d but received %d", (s.NR-1)*3+i, s.F(i).Int())
+			}
+		}
+	})
+
+	// Run the script and validate the output.
+	input := []string{
+		" 1  2  3",
+		" 4  5  6",
+		" 7  8  9",
+		"10 11 12",
+	}
+	err := scr.Run(strings.NewReader(strings.Join(input, "\n")))
+	if err != nil {
+		t.Fatal(err)
+	}
+}

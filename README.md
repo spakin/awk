@@ -15,10 +15,10 @@ import (
 
 func main() {
     s := awk.NewScript()
-    s.AppendStmt(awk.Begin, func(s *awk.Script) {
+    s.Begin = func(s *awk.Script) {
         s.SetFS(",")
         s.SetOFS(",")
-    })
+    }
     s.AppendStmt(nil, func(s *awk.Script) {
         s.SetF(3, s.NewValue(s.F(1).Int()+s.F(2).Int()))
         s.Println()

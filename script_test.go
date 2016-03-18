@@ -95,8 +95,8 @@ func TestReadRecordRE(t *testing.T) {
 	}
 }
 
-// TestSplitRecordWhitespace tests splitting a record into
-// whitespace-separated fields.
+// TestSplitRecordWhitespace tests splitting a record into whitespace-separated
+// fields.
 func TestSplitRecordWhitespace(t *testing.T) {
 	recordStr := "The woods are lovely,  dark and    deep,"
 	fields := regexp.MustCompile(`\s+`).Split(recordStr, -1)
@@ -701,8 +701,8 @@ func TestCatchSetRSError(t *testing.T) {
 	}
 }
 
-// TestGetLineSelf tests that GetLine can read the next record from
-// the current input stream.
+// TestGetLineSelf tests that GetLine can read the next record from the current
+// input stream.
 func TestGetLineSelf(t *testing.T) {
 	// Define a script.
 	var output []string
@@ -785,8 +785,8 @@ func TestGetLineSelf(t *testing.T) {
 	}
 }
 
-// TestGetLineOther tests that GetLine can read the next record from
-// an alternative input stream.
+// TestGetLineOther tests that GetLine can read the next record from an
+// alternative input stream.
 func TestGetLineOther(t *testing.T) {
 	// Define our inputs and desired output.
 	input := []string{
@@ -890,6 +890,62 @@ func TestGetLineSetF(t *testing.T) {
 		"10 11 12",
 	}
 	err := scr.Run(strings.NewReader(strings.Join(input, "\n")))
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestBigLongLine tests splitting a very long record into whitespace-separated
+// fields
+func TestBigLongLine(t *testing.T) {
+	// Specify the word to appear in each field.
+	word := "pneumonoultramicroscopicsilicovolcanoconiosis"
+
+	// Define a script that simply verifies that each field is
+	// correct.
+	scr := NewScript()
+	scr.AppendStmt(nil, func(s *Script) {
+		// Validate the current line.
+		for i := 1; i <= s.NF; i++ {
+			if s.F(i).String() != word {
+				t.Fatalf("Expected %q but received %q", word, s.F(i).String())
+			}
+		}
+	})
+
+	// Define a function to test a record with a given number of fields.
+	testBigRecord := func(numFields int) error {
+		// Create a very long string.
+		recordStr := word
+		for i := 0; i < numFields-1; i++ {
+			recordStr += " " + word
+		}
+
+		// Run the script and return its error value.
+		input := strings.NewReader(recordStr)
+		return scr.Run(input)
+	}
+
+	// Try increasingly large records until we exhaust the default maximum
+	// record size.
+	var err error
+	var numFields int
+	for numFields = 100; numFields <= 100000000; numFields *= 10 {
+		err = testBigRecord(numFields)
+		if err != nil {
+			break
+		}
+	}
+	if err == nil {
+		// We never managed to exhaust the default maximum record size.
+		// Assume it's big enough for all practical purposes.
+		return
+	}
+
+	// Set the buffer size and try again.  There should be no error this
+	// time.
+	scr.MaxRecordSize = (len(word) + 1) * numFields
+	err = testBigRecord(numFields)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -38,19 +38,27 @@ const (
 	stopScript                  // Abort the entire script
 )
 
+// Choose arbitrary initial sizes for record and field buffers.
+const (
+	initialFieldSize  = 4096
+	initialRecordSize = 4096
+)
+
 // A Script encapsulates all of the internal state for an AWK-like script.
 type Script struct {
-	State   interface{} // Arbitrary, user-supplied data
-	Output  io.Writer   // Output stream (defaults to os.Stdout)
-	Begin   ActionFunc  // Action to perform before any input is read
-	End     ActionFunc  // Action to perform after all input is read
-	ConvFmt string      // Conversion format for numbers, "%.6g" by default
-	SubSep  string      // Separator for simulated multidimensional arrays
-	NR      int         // Number of input records seen so far
-	NF      int         // Number of fields in the current input record
-	RT      string      // Actual string terminating the current record
-	RStart  int         // 1-based index of the previous regexp match (Value.Match)
-	RLength int         // Length of the previous regexp match (Value.Match)
+	State         interface{} // Arbitrary, user-supplied data
+	Output        io.Writer   // Output stream (defaults to os.Stdout)
+	Begin         ActionFunc  // Action to perform before any input is read
+	End           ActionFunc  // Action to perform after all input is read
+	ConvFmt       string      // Conversion format for numbers, "%.6g" by default
+	SubSep        string      // Separator for simulated multidimensional arrays
+	NR            int         // Number of input records seen so far
+	NF            int         // Number of fields in the current input record
+	RT            string      // Actual string terminating the current record
+	RStart        int         // 1-based index of the previous regexp match (Value.Match)
+	RLength       int         // Length of the previous regexp match (Value.Match)
+	MaxRecordSize int         // Maximum number of characters allowed in each record
+	MaxFieldSize  int         // Maximum number of characters allowed in each field
 
 	nf0          int                       // Value of NF for which F(0) was computed
 	rs           string                    // Input record separator, newline by default
@@ -73,22 +81,24 @@ type Script struct {
 // NewScript initializes a new Script with default values.
 func NewScript() *Script {
 	return &Script{
-		Output:       os.Stdout,
-		ConvFmt:      "%.6g",
-		SubSep:       "\034",
-		NR:           0,
-		NF:           0,
-		nf0:          0,
-		rs:           "\n",
-		fs:           " ",
-		ors:          "\n",
-		ofs:          " ",
-		ignCase:      false,
-		rules:        make([]statement, 0, 10),
-		fields:       make([]*Value, 0),
-		regexps:      make(map[string]*regexp.Regexp, 10),
-		getlineState: make(map[io.Reader]*Script),
-		state:        notRunning,
+		Output:        os.Stdout,
+		ConvFmt:       "%.6g",
+		SubSep:        "\034",
+		NR:            0,
+		NF:            0,
+		MaxRecordSize: bufio.MaxScanTokenSize,
+		MaxFieldSize:  bufio.MaxScanTokenSize,
+		nf0:           0,
+		rs:            "\n",
+		fs:            " ",
+		ors:           "\n",
+		ofs:           " ",
+		ignCase:       false,
+		rules:         make([]statement, 0, 10),
+		fields:        make([]*Value, 0),
+		regexps:       make(map[string]*regexp.Regexp, 10),
+		getlineState:  make(map[io.Reader]*Script),
+		state:         notRunning,
 	}
 }
 
@@ -763,6 +773,7 @@ func (s *Script) readRecord() (string, error) {
 // record.
 func (s *Script) splitRecord(rec string) error {
 	fsScanner := bufio.NewScanner(strings.NewReader(rec))
+	fsScanner.Buffer(make([]byte, initialFieldSize), s.MaxFieldSize)
 	fsScanner.Split(s.makeFieldSplitter())
 	fields := make([]*Value, 0, 100)
 	fields = append(fields, s.NewValue(rec))
@@ -808,6 +819,7 @@ func (s *Script) GetLine(r io.Reader) (*Value, error) {
 		// terminator.
 		sc.input = r
 		sc.rsScanner = bufio.NewScanner(sc.input)
+		sc.rsScanner.Buffer(make([]byte, initialRecordSize), sc.MaxRecordSize)
 		sc.rsScanner.Split(sc.makeRecordSplitter())
 	}
 
@@ -848,6 +860,7 @@ func (s *Script) Run(r io.Reader) (err error) {
 
 	// Create (and store) a new scanner based on the record terminator.
 	s.rsScanner = bufio.NewScanner(s.input)
+	s.rsScanner.Buffer(make([]byte, initialRecordSize), s.MaxRecordSize)
 	s.rsScanner.Split(s.makeRecordSplitter())
 
 	// Process each record in turn.

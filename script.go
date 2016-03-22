@@ -878,7 +878,10 @@ func (s *Script) Run(r io.Reader) (err error) {
 		s.NR++
 
 		// Split the record into its constituent fields.
-		s.splitRecord(rec)
+		err = s.splitRecord(rec)
+		if err != nil {
+			return err
+		}
 
 		// Process all applicable actions.
 		for _, rule := range s.rules {

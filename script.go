@@ -15,7 +15,11 @@ import (
 
 // A scriptAborter is an error that causes the current script to abort but lets
 // the rest of the program run.
-type scriptAborter error
+type scriptAborter struct{ error }
+
+// A recordStopper is thrown when a script wants to continue immediately with
+// the next record.
+type recordStopper struct{ error }
 
 // A parseState indicates where we are in our parsing state.
 type parseState int
@@ -105,7 +109,7 @@ func NewScript() *Script {
 // abortScript aborts the current script with a formatted error message.
 func (s *Script) abortScript(format string, a ...interface{}) {
 	s.stop = stopScript
-	panic(scriptAborter(fmt.Errorf(format, a...)))
+	panic(scriptAborter{fmt.Errorf(format, a...)})
 }
 
 // Return a copy of a Script.
@@ -341,6 +345,7 @@ func (s *Script) Next() {
 	if s.stop == dontStop {
 		s.stop = stopRec
 	}
+	panic(recordStopper{errors.New("Unexpected Next invocation")}) // Unexpected if we don't catch it
 }
 
 // Exit stops processing the entire script, causing the Run method to return.
@@ -884,14 +889,32 @@ func (s *Script) Run(r io.Reader) (err error) {
 		}
 
 		// Process all applicable actions.
-		for _, rule := range s.rules {
-			if rule.Pattern(s) {
-				rule.Action(s)
-				if s.stop != dontStop {
-					break
+		func() {
+			// An action is able to break out of the
+			// action-processing loop by calling Next, which throws
+			// a recordStopper.  We catch that and continue
+			// with the next record.
+			defer func() {
+				if r := recover(); r != nil {
+					if _, ok := r.(recordStopper); !ok {
+						panic(r)
+					}
+				}
+			}()
+
+			// Perform each action whose pattern matches the
+			// current record.
+			for _, rule := range s.rules {
+				if rule.Pattern(s) {
+					rule.Action(s)
+					if s.stop != dontStop {
+						break
+					}
 				}
 			}
-		}
+		}()
+
+		// Stop the script if an error occurred or an action calls  Exit.
 		if s.stop == stopScript {
 			return nil
 		}

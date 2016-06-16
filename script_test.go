@@ -701,6 +701,42 @@ func TestCatchSetRSError(t *testing.T) {
 	}
 }
 
+// TestNext tests that Next immediately stops the current action and
+// immediately continues with the next record.
+func TestNext(t *testing.T) {
+	// Define a script.
+	var output []string
+	scr := NewScript()
+	scr.Begin = func(s *Script) { output = make([]string, 0, 3) }
+	scr.AppendStmt(nil, func(s *Script) {
+		output = append(output, s.F(0).String())
+		s.Next()
+		t.Fatal("Next did not immediately exit the current action")
+	})
+	scr.AppendStmt(nil, func(s *Script) {
+		t.Fatal("Next did not immediately go to the next record")
+	})
+
+	// Define our input and desired output.
+	input := []string{
+		"追いかけ", // Oikake
+		"待ち伏せ", // Machibuse
+		"気まぐれ", // Kimagure
+		"お惚け",  // Otoboke
+	}
+	desiredOutput := strings.Join(input, " ")
+
+	// Run the script and validate the output.
+	err := scr.Run(strings.NewReader(strings.Join(input, "\n")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	outputStr := strings.Join(output, " ")
+	if outputStr != desiredOutput {
+		t.Fatalf("Expected %q but received %q", desiredOutput, outputStr)
+	}
+}
+
 // TestGetLineSelf tests that GetLine can read the next record from the current
 // input stream.
 func TestGetLineSelf(t *testing.T) {

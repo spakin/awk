@@ -521,13 +521,10 @@ func (s *Script) makeSingleCharFieldSplitter() func([]byte, bool) (int, []byte, 
 		for width, i := 0, 0; i < len(data); i += width {
 			var r rune
 			r, width = utf8.DecodeRune(data[i:])
-			if r == utf8.RuneError {
-				if i+utf8.UTFMax >= len(data) {
-					// Invalid rune at the end of the data.
-					// Request more data and try again.
-					return 0, nil, nil
-				}
-				return 0, nil, errors.New("Invalid rune in input data")
+			if r == utf8.RuneError && i+utf8.UTFMax >= len(data) {
+				// Invalid rune at the end of the data.
+				// Request more data and try again.
+				return 0, nil, nil
 			}
 			if r == firstRune {
 				return i + width, data[:i], nil
@@ -708,14 +705,10 @@ func (s *Script) makeRecordSplitter() func([]byte, bool) (int, []byte, error) {
 			for width, i := 0, 0; i < len(data); i += width {
 				var r rune
 				r, width = utf8.DecodeRune(data[i:])
-				if r == utf8.RuneError {
-					if i+utf8.UTFMax >= len(data) {
-						// Invalid rune at the end of
-						// the data.  Request more data
-						// and try again.
-						return 0, nil, nil
-					}
-					return 0, nil, errors.New("Invalid rune in input data")
+				if r == utf8.RuneError && i+utf8.UTFMax >= len(data) {
+					// Invalid rune at the end of the data.
+					// Request more data and try again.
+					return 0, nil, nil
 				}
 				if r == firstRune {
 					return i + width, data[:i], nil

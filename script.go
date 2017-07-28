@@ -521,7 +521,7 @@ func (s *Script) makeSingleCharFieldSplitter() func([]byte, bool) (int, []byte, 
 		for width, i := 0, 0; i < len(data); i += width {
 			var r rune
 			r, width = utf8.DecodeRune(data[i:])
-			if r == utf8.RuneError && i+width >= len(data) {
+			if r == utf8.RuneError && i+width >= len(data) && !atEOF {
 				// Invalid rune at the end of the data.
 				// Request more data and try again.
 				return 0, nil, nil
@@ -705,7 +705,7 @@ func (s *Script) makeRecordSplitter() func([]byte, bool) (int, []byte, error) {
 			for width, i := 0, 0; i < len(data); i += width {
 				var r rune
 				r, width = utf8.DecodeRune(data[i:])
-				if r == utf8.RuneError && i+width >= len(data) {
+				if r == utf8.RuneError && i+width >= len(data) && !atEOF {
 					// Invalid rune at the end of the data.
 					// Request more data and try again.
 					return 0, nil, nil

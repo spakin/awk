@@ -112,7 +112,7 @@ func (s *Script) abortScript(format string, a ...interface{}) {
 	panic(scriptAborter{fmt.Errorf(format, a...)})
 }
 
-// Return a copy of a Script.
+// Copy returns a copy of a Script.
 func (s *Script) Copy() *Script {
 	sc := *s
 	sc.rules = make([]statement, len(s.rules))

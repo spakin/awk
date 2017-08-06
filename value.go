@@ -19,9 +19,9 @@ type Value struct {
 	fval float64 // Value converted to a float64
 	sval string  // Value converted to a string
 
-	ival_ok bool // true: ival is valid; false: invalid
-	fval_ok bool // true: fval is valid; false: invalid
-	sval_ok bool // true: sval is valid; false: invalid
+	ivalOk bool // true: ival is valid; false: invalid
+	fvalOk bool // true: fval is valid; false: invalid
+	svalOk bool // true: sval is valid; false: invalid
 
 	script *Script // Pointer to the script that produced this value
 }
@@ -34,68 +34,68 @@ func (s *Script) NewValue(v interface{}) *Value {
 	switch v := v.(type) {
 	case uint:
 		val.ival = int(v)
-		val.ival_ok = true
+		val.ivalOk = true
 	case uint8:
 		val.ival = int(v)
-		val.ival_ok = true
+		val.ivalOk = true
 	case uint16:
 		val.ival = int(v)
-		val.ival_ok = true
+		val.ivalOk = true
 	case uint32:
 		val.ival = int(v)
-		val.ival_ok = true
+		val.ivalOk = true
 	case uint64:
 		val.ival = int(v)
-		val.ival_ok = true
+		val.ivalOk = true
 	case uintptr:
 		val.ival = int(v)
-		val.ival_ok = true
+		val.ivalOk = true
 
 	case int:
 		val.ival = int(v)
-		val.ival_ok = true
+		val.ivalOk = true
 	case int8:
 		val.ival = int(v)
-		val.ival_ok = true
+		val.ivalOk = true
 	case int16:
 		val.ival = int(v)
-		val.ival_ok = true
+		val.ivalOk = true
 	case int32:
 		val.ival = int(v)
-		val.ival_ok = true
+		val.ivalOk = true
 	case int64:
 		val.ival = int(v)
-		val.ival_ok = true
+		val.ivalOk = true
 
 	case bool:
 		if v {
 			val.ival = 1
 		}
-		val.ival_ok = true
+		val.ivalOk = true
 
 	case float32:
 		val.fval = float64(v)
-		val.fval_ok = true
+		val.fvalOk = true
 	case float64:
 		val.fval = float64(v)
-		val.fval_ok = true
+		val.fvalOk = true
 
 	case complex64:
 		val.fval = float64(real(v))
-		val.fval_ok = true
+		val.fvalOk = true
 	case complex128:
 		val.fval = float64(real(v))
-		val.fval_ok = true
+		val.fvalOk = true
 
 	case string:
 		val.sval = v
-		val.sval_ok = true
+		val.svalOk = true
 
 	case *Value:
 		*val = *v
 
 	default:
-		val.sval_ok = true
+		val.svalOk = true
 	}
 	val.script = s
 	return val
@@ -107,11 +107,11 @@ var matchInt = regexp.MustCompile(`^\s*([-+]?\d+)`)
 // Int converts a Value to an int.
 func (v *Value) Int() int {
 	switch {
-	case v.ival_ok:
-	case v.fval_ok:
+	case v.ivalOk:
+	case v.fvalOk:
 		v.ival = int(v.fval)
-		v.ival_ok = true
-	case v.sval_ok:
+		v.ivalOk = true
+	case v.svalOk:
 		// Perform a best-effort conversion from string to int.
 		strs := matchInt.FindStringSubmatch(v.sval)
 		var i64 int64
@@ -119,7 +119,7 @@ func (v *Value) Int() int {
 			i64, _ = strconv.ParseInt(strs[1], 10, 0)
 		}
 		v.ival = int(i64)
-		v.ival_ok = true
+		v.ivalOk = true
 	}
 	return v.ival
 }
@@ -130,18 +130,18 @@ var matchFloat = regexp.MustCompile(`^\s*([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[Ee][-+
 // Float64 converts a Value to a float64.
 func (v *Value) Float64() float64 {
 	switch {
-	case v.fval_ok:
-	case v.ival_ok:
+	case v.fvalOk:
+	case v.ivalOk:
 		v.fval = float64(v.ival)
-		v.fval_ok = true
-	case v.sval_ok:
+		v.fvalOk = true
+	case v.svalOk:
 		// Perform a best-effort conversion from string to float64.
 		v.fval = 0.0
 		strs := matchFloat.FindStringSubmatch(v.sval)
 		if len(strs) >= 2 {
 			v.fval, _ = strconv.ParseFloat(strs[1], 64)
 		}
-		v.fval_ok = true
+		v.fvalOk = true
 	}
 	return v.fval
 }
@@ -149,13 +149,13 @@ func (v *Value) Float64() float64 {
 // String converts a Value to a string.
 func (v *Value) String() string {
 	switch {
-	case v.sval_ok:
-	case v.ival_ok:
+	case v.svalOk:
+	case v.ivalOk:
 		v.sval = strconv.FormatInt(int64(v.ival), 10)
-		v.sval_ok = true
-	case v.fval_ok:
+		v.svalOk = true
+	case v.fvalOk:
 		v.sval = fmt.Sprintf(v.script.ConvFmt, v.fval)
-		v.sval_ok = true
+		v.svalOk = true
 	}
 	return v.sval
 }

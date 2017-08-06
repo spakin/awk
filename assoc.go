@@ -20,7 +20,7 @@ func (s *Script) NewValueArray() *ValueArray {
 	}
 }
 
-// Set(index, value) assigns a Value to an index of a ValueArray.  Multiple
+// Set (index, value) assigns a Value to an index of a ValueArray.  Multiple
 // indexes can be specified to simulate multidimensional arrays.  (In fact, the
 // indexes are concatenated into a single string with intervening Script.SubSep
 // characters.)  The final argument is always the value to assign.  Arguments

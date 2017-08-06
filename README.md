@@ -1,7 +1,7 @@
 awk
 ===
 
-[![Build Status](https://travis-ci.org/spakin/awk.svg?branch=master)](https://travis-ci.org/spakin/awk) [![GoDoc](https://godoc.org/github.com/spakin/awk?status.svg)](https://godoc.org/github.com/spakin/awk)
+[![Go Report Card](https://goreportcard.com/badge/github.com/spakin/awk)](https://goreportcard.com/report/github.com/spakin/awk) [![Build Status](https://travis-ci.org/spakin/awk.svg?branch=master)](https://travis-ci.org/spakin/awk) [![GoDoc](https://godoc.org/github.com/spakin/awk?status.svg)](https://godoc.org/github.com/spakin/awk)
 
 Description
 -----------

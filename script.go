@@ -932,3 +932,44 @@ func (s *Script) Run(r io.Reader) (err error) {
 	s.state = notRunning
 	return nil
 }
+
+// RunPipeline chains together a set of scripts into a pipeline, with each
+// script sending its output to the next.  (Implication: Script.Output will be
+// overwritten in all but the last script.)  If any script in the pipeline
+// fails, a non-nil error will be returned.
+func RunPipeline(r io.Reader, ss ...*Script) error {
+	// Spawn scripts in reverse order so they begin blocked on input.
+	eChan := make(chan error, len(ss))
+	for i := len(ss) - 1; i > 0; i-- {
+		s := ss[i]
+		pr, pw := io.Pipe()
+		ss[i-1].Output = pw
+		go func(i int, pr *io.PipeReader) {
+			eChan <- s.Run(pr)
+			if i < len(ss)-1 {
+				ss[i].Output.(*io.PipeWriter).Close()
+			}
+		}(i, pr)
+	}
+
+	// Spawn the first script to enable the rest to begin.
+	go func() {
+		eChan <- ss[0].Run(r)
+		if len(ss) > 1 {
+			ss[0].Output.(*io.PipeWriter).Close()
+		}
+	}()
+
+	// Wait for all scripts to finish.
+	for range ss {
+		err := <-eChan
+		if err != nil {
+			// Error -- close all output pipes then return.
+			for j := 0; j < len(ss)-1; j++ {
+				ss[j].Output.(*io.PipeWriter).Close()
+			}
+			return err
+		}
+	}
+	return nil
+}

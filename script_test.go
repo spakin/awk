@@ -5,6 +5,7 @@ package awk
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io"
 	"regexp"
 	"sort"
@@ -984,5 +985,177 @@ func TestBigLongLine(t *testing.T) {
 	err = testBigRecord(numFields)
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+// TestRunPipeline1 tests that RunPipeline can implement a pipeline of a single
+// operation.
+func TestRunPipeline1(t *testing.T) {
+	// Define a script that repeats the first word of each line
+	rep := NewScript()
+	rep.AppendStmt(nil, func(s *Script) {
+		s.Println(s.F(1), s.F(1))
+	})
+
+	// Pipe inputs into the pipeline we're about to run and from the
+	// pipeline into a memory buffer.
+	pr, pw := io.Pipe()
+	rep.Output = bytes.NewBuffer(make([]byte, 0, 10000))
+
+	// Write numbers into the pipe in the background.
+	go func() {
+		for i := 1; i <= 100; i++ {
+			fmt.Fprintf(pw, "%3d\n", i)
+		}
+		pw.Close()
+	}()
+
+	// Execute a pipeline in the foreground.
+	err := RunPipeline(pr, rep)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Ensure we received the expected output.
+	exp := bytes.NewBuffer(make([]byte, 0, 10000))
+	for i := 1; i <= 100; i++ {
+		fmt.Fprintf(exp, "%d %d\n", i, i)
+	}
+	got := rep.Output.(*bytes.Buffer).String()
+	if exp.String() != got {
+		t.Fatalf("Incorrect output %q", got)
+	}
+}
+
+// TestRunPipeline2 tests that RunPipeline can implement a pipeline of two
+// operations.
+func TestRunPipeline2(t *testing.T) {
+	// Define a script that repeats the first word of each line
+	rep := NewScript()
+	rep.AppendStmt(nil, func(s *Script) {
+		s.Println(s.F(1), s.F(1))
+	})
+
+	// Define a script that replaces the second word of each line
+	// with twice its value.
+	dbl := NewScript()
+	dbl.AppendStmt(nil, func(s *Script) {
+		s.Println(s.F(1), s.F(2).Int()*2)
+	})
+
+	// Pipe inputs into the pipeline we're about to run and from the
+	// pipeline into a memory buffer.
+	pr, pw := io.Pipe()
+	dbl.Output = bytes.NewBuffer(make([]byte, 0, 10000))
+
+	// Write numbers into the pipe in the background.
+	go func() {
+		for i := 1; i <= 100; i++ {
+			fmt.Fprintf(pw, "%3d\n", i)
+		}
+		pw.Close()
+	}()
+
+	// Execute a pipeline in the foreground.
+	err := RunPipeline(pr, rep, dbl)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Ensure we received the expected output.
+	exp := bytes.NewBuffer(make([]byte, 0, 10000))
+	for i := 1; i <= 100; i++ {
+		fmt.Fprintf(exp, "%d %d\n", i, i*2)
+	}
+	got := dbl.Output.(*bytes.Buffer).String()
+	if exp.String() != got {
+		t.Fatalf("Incorrect output %q", got)
+	}
+}
+
+// TestRunPipeline5 tests that RunPipeline can implement a pipeline of five
+// operations.
+func TestRunPipeline5(t *testing.T) {
+	// Define a script that repeats the first word of each line
+	rep := NewScript()
+	rep.AppendStmt(nil, func(s *Script) {
+		s.Println(s.F(1), s.F(1))
+	})
+
+	// Define a script that replaces the second number in a line with
+	// "fizz" if the first number is a multiple of 3.
+	fizz := NewScript()
+	fizz.AppendStmt(nil, func(s *Script) {
+		if s.F(1).Int()%3 == 0 {
+			s.Println(s.F(1), "fizz")
+		} else {
+			s.Println()
+		}
+	})
+
+	// Define a script that replaces the second number in a line with
+	// "buzz" if the first number is a multiple of 5.
+	buzz := NewScript()
+	buzz.AppendStmt(nil, func(s *Script) {
+		if s.F(1).Int()%5 == 0 {
+			s.Println(s.F(1), "buzz")
+		} else {
+			s.Println()
+		}
+	})
+
+	// Define a script that replaces the second number in a line with
+	// "fizzbuzz" if the first number is a multiple of 15.
+	fizzbuzz := NewScript()
+	fizzbuzz.AppendStmt(nil, func(s *Script) {
+		if s.F(1).Int()%15 == 0 {
+			s.Println(s.F(1), "fizzbuzz")
+		} else {
+			s.Println()
+		}
+	})
+
+	// Define a script that outputs only the second field.
+	strip := NewScript()
+	strip.AppendStmt(nil, func(s *Script) {
+		s.Println(s.F(2))
+	})
+
+	// Pipe inputs into the pipeline we're about to run and from the
+	// pipeline into a memory buffer.
+	pr, pw := io.Pipe()
+	strip.Output = bytes.NewBuffer(make([]byte, 0, 10000))
+
+	// Write numbers into the pipe in the background.
+	go func() {
+		for i := 1; i <= 100; i++ {
+			fmt.Fprintf(pw, "%3d\n", i)
+		}
+		pw.Close()
+	}()
+
+	// Execute a pipeline in the foreground.
+	err := RunPipeline(pr, rep, fizz, buzz, fizzbuzz, strip)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Ensure we received the expected output.
+	exp := bytes.NewBuffer(make([]byte, 0, 10000))
+	for i := 1; i <= 100; i++ {
+		switch {
+		case i%15 == 0:
+			fmt.Fprintln(exp, "fizzbuzz")
+		case i%5 == 0:
+			fmt.Fprintln(exp, "buzz")
+		case i%3 == 0:
+			fmt.Fprintln(exp, "fizz")
+		default:
+			fmt.Fprintf(exp, "%d\n", i)
+		}
+	}
+	got := strip.Output.(*bytes.Buffer).String()
+	if exp.String() != got {
+		t.Fatalf("Incorrect output %q", got)
 	}
 }

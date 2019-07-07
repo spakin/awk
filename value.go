@@ -192,21 +192,18 @@ func (v *Value) StrEqual(v2 interface{}) bool {
 	case *Value:
 		if v.script.ignCase {
 			return strings.EqualFold(v.String(), v2.String())
-		} else {
-			return v.String() == v2.String()
 		}
+		return v.String() == v2.String()
 	case string:
 		if v.script.ignCase {
 			return strings.EqualFold(v.String(), v2)
-		} else {
-			return v.String() == v2
 		}
+		return v.String() == v2
 	default:
 		v2Val := v.script.NewValue(v2)
 		if v.script.ignCase {
 			return strings.EqualFold(v.String(), v2Val.String())
-		} else {
-			return v.String() == v2Val.String()
 		}
+		return v.String() == v2Val.String()
 	}
 }

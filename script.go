@@ -364,10 +364,9 @@ func Range(p1, p2 PatternFunc) PatternFunc {
 		if inRange {
 			inRange = !p2(s)
 			return true
-		} else {
-			inRange = p1(s)
-			return inRange
 		}
+		inRange = p1(s)
+		return inRange
 	}
 }
 
@@ -772,9 +771,8 @@ func (s *Script) readRecord() (string, error) {
 	}
 	if err := s.rsScanner.Err(); err != nil {
 		return "", err
-	} else {
-		return "", io.EOF
 	}
+	return "", io.EOF
 }
 
 // splitRecord splits a record into fields.  It stores the fields in the Script

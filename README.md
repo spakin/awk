@@ -1,7 +1,7 @@
 awk
 ===
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/spakin/awk)](https://goreportcard.com/report/github.com/spakin/awk) [![Build Status](https://travis-ci.org/spakin/awk.svg?branch=master)](https://travis-ci.org/spakin/awk) [![GoDoc](https://godoc.org/github.com/spakin/awk?status.svg)](https://godoc.org/github.com/spakin/awk)
+[![Go Report Card](https://goreportcard.com/badge/github.com/spakin/awk)](https://goreportcard.com/report/github.com/spakin/awk) [![Build Status](https://travis-ci.org/spakin/awk.svg?branch=master)](https://travis-ci.org/spakin/awk) [![Go project version](https://badge.fury.io/go/github.com%2Fspakin%2Fawk.svg)](https://badge.fury.io/go/github.com%2Fspakin%2Fawk) [![GoDoc](https://godoc.org/github.com/spakin/awk?status.svg)](https://godoc.org/github.com/spakin/awk)
 
 Description
 -----------
@@ -34,11 +34,11 @@ In the above, the `awk` package handles all the mundane details such as reading 
 Installation
 ------------
 
-Instead of manually downloading and installing `awk` from GitHub, the recommended approach is to ensure your `GOPATH` environment variable is set properly then issue a
+The `awk` package has opted into the [Go module system](https://blog.golang.org/using-go-modules) so installation is in fact unnecessary if your program or package has done likewise.  Otherwise, a traditional
 ```bash
 go get github.com/spakin/awk
 ```
-command.
+will install the package.
 
 Documentation
 -------------

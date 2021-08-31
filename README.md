@@ -1,7 +1,7 @@
 awk
 ===
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/spakin/awk)](https://goreportcard.com/report/github.com/spakin/awk) [![Build Status](https://travis-ci.org/spakin/awk.svg?branch=master)](https://travis-ci.org/spakin/awk) [![Go project version](https://badge.fury.io/go/github.com%2Fspakin%2Fawk.svg)](https://badge.fury.io/go/github.com%2Fspakin%2Fawk) [![GoDoc](https://godoc.org/github.com/spakin/awk?status.svg)](https://godoc.org/github.com/spakin/awk)
+[![Go Report Card](https://goreportcard.com/badge/github.com/spakin/awk)](https://goreportcard.com/report/github.com/spakin/awk) [![Build Status](https://travis-ci.com/spakin/awk.svg?branch=master)](https://travis-ci.com/spakin/awk) [![Go project version](https://badge.fury.io/go/github.com%2Fspakin%2Fawk.svg)](https://badge.fury.io/go/github.com%2Fspakin%2Fawk) [![GoDoc](https://godoc.org/github.com/spakin/awk?status.svg)](https://godoc.org/github.com/spakin/awk)
 
 Description
 -----------
